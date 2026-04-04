@@ -93,6 +93,43 @@ function formatTimestamp(timestamp: number) {
   return new Date(timestamp * 1000).toLocaleString();
 }
 
+function lpStatusDisplay(lpStatus: string) {
+  switch (lpStatus) {
+    case "locked":
+      return {
+        label: "Locked ✅",
+        cardClass: "border-blue-900 bg-blue-950/20",
+        textClass: "text-blue-300",
+        bodyClass: "text-white",
+        note: "Liquidity lock proof has been published.",
+      };
+    case "burned":
+      return {
+        label: "Burned ✅",
+        cardClass: "border-green-900 bg-green-950/20",
+        textClass: "text-green-300",
+        bodyClass: "text-white",
+        note: "LP tokens have been burned and are no longer recoverable.",
+      };
+    case "unlocked":
+      return {
+        label: "Unlocked ⚠️",
+        cardClass: "border-red-900 bg-red-950/20",
+        textClass: "text-red-300",
+        bodyClass: "text-white",
+        note: "Unlocked liquidity is a higher-risk signal for investors.",
+      };
+    default:
+      return {
+        label: "Unknown",
+        cardClass: "border-zinc-800 bg-zinc-950",
+        textClass: "text-zinc-300",
+        bodyClass: "text-white",
+        note: "Publish LP proof or status for stronger trust signals.",
+      };
+  }
+}
+
 async function getWalletData(): Promise<WalletApiResponse | null> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
@@ -135,6 +172,7 @@ export default async function TransparencyPage() {
   }
 
   const security = await getTokenSecurity(data.mint);
+  const lpDisplay = lpStatusDisplay(security.lpStatus);
 
   const treasuryWallets = data.wallets.filter((w) => w.category === "treasury");
   const liquidityWallets = data.wallets.filter((w) => w.category === "liquidity");
@@ -157,7 +195,7 @@ export default async function TransparencyPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-7xl px-6 py-8 space-y-8">
+      <div className="mx-auto max-w-7xl space-y-8 px-6 py-8">
         <section className="rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-black to-red-950/20 p-8 shadow-2xl">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="max-w-3xl">
@@ -262,12 +300,23 @@ export default async function TransparencyPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-blue-900 bg-blue-950/20 p-5">
-            <div className="text-sm text-blue-300">LP Status</div>
-            <div className="mt-2 text-xl font-semibold">Add LP proof</div>
-            <p className="mt-2 text-sm text-zinc-400">
-              Publish LP lock or burn proof here for stronger trust signals.
-            </p>
+          <div className={`rounded-2xl p-5 border ${lpDisplay.cardClass}`}>
+            <div className={`text-sm ${lpDisplay.textClass}`}>LP Status</div>
+            <div className={`mt-2 text-xl font-semibold ${lpDisplay.bodyClass}`}>
+              {lpDisplay.label}
+            </div>
+            <p className="mt-2 text-sm text-zinc-400">{lpDisplay.note}</p>
+
+            {security.lpProofUrl ? (
+              <a
+                href={security.lpProofUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-block text-sm text-blue-400 hover:underline"
+              >
+                View LP proof
+              </a>
+            ) : null}
           </div>
 
           <div className="rounded-2xl border border-red-900 bg-red-950/20 p-5">
@@ -438,6 +487,7 @@ export default async function TransparencyPage() {
               <li>• Large token movements are monitored and surfaced publicly.</li>
               <li>• Wallet balances can be independently verified on Solscan.</li>
               <li>• Mint and freeze authority statuses are checked from on-chain data.</li>
+              <li>• LP status is published for public investor review.</li>
             </ul>
           </section>
 
