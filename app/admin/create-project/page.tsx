@@ -32,10 +32,15 @@ export default function CreateProjectPage() {
   const slugify = (text: string) =>
     text.toLowerCase().replace(/\s+/g, "-");
 
-  const generateConfig = () => {
+  const handleSubmit = async () => {
+    if (!name || !symbol || !mint) {
+      alert("Please fill in Name, Symbol, and Mint");
+      return;
+    }
+
     const slug = slugify(name);
 
-    const config = {
+    const project = {
       slug,
       name,
       symbol,
@@ -48,7 +53,32 @@ export default function CreateProjectPage() {
       wallets,
     };
 
-    return JSON.stringify(config, null, 2);
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(project),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        alert("Project Created 🚀");
+
+        // reset form
+        setName("");
+        setSymbol("");
+        setMint("");
+        setDescription("");
+        setWallets([]);
+      } else {
+        alert("Error: " + data.error);
+      }
+    } catch (err) {
+      alert("Network error creating project");
+    }
   };
 
   return (
@@ -137,15 +167,12 @@ export default function CreateProjectPage() {
           </button>
         </div>
 
-        <div className="space-y-3">
-          <h2 className="text-xl font-semibold">Generated Config</h2>
-
-          <textarea
-            value={generateConfig()}
-            readOnly
-            className="w-full h-64 bg-zinc-900 p-3 rounded font-mono text-sm"
-          />
-        </div>
+        <button
+          onClick={handleSubmit}
+          className="bg-green-600 px-6 py-3 rounded text-lg font-semibold"
+        >
+          🚀 Create Project
+        </button>
       </div>
     </main>
   );
