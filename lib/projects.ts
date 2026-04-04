@@ -1,3 +1,10 @@
+export type ProjectWallet = {
+  label: string;
+  category: string;
+  address: string;
+  purpose: string;
+};
+
 export type ProjectConfig = {
   slug: string;
   name: string;
@@ -8,12 +15,7 @@ export type ProjectConfig = {
     primary: string;
     accent: string;
   };
-  wallets: {
-    label: string;
-    category: string;
-    address: string;
-    purpose: string;
-  }[];
+  wallets: ProjectWallet[];
 };
 
 export const PROJECTS: ProjectConfig[] = [
