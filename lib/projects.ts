@@ -1,3 +1,5 @@
+import { getProjects } from "./projectStore";
+
 export type ProjectWallet = {
   label: string;
   category: string;
@@ -18,7 +20,10 @@ export type ProjectConfig = {
   wallets: ProjectWallet[];
 };
 
-export const PROJECTS: ProjectConfig[] = [
+/**
+ * 🔒 Default fallback projects (your current working system)
+ */
+export const DEFAULT_PROJECTS: ProjectConfig[] = [
   {
     slug: "jtrump",
     name: "JTRUMP",
@@ -77,6 +82,22 @@ export const PROJECTS: ProjectConfig[] = [
   },
 ];
 
-export function getProjectBySlug(slug: string) {
-  return PROJECTS.find((project) => project.slug === slug) || null;
+/**
+ * 🧠 Merge dynamic + default projects
+ */
+export function getAllProjects(): ProjectConfig[] {
+  try {
+    const dynamicProjects = getProjects();
+    return [...DEFAULT_PROJECTS, ...dynamicProjects];
+  } catch {
+    return DEFAULT_PROJECTS;
+  }
+}
+
+/**
+ * 🔎 Get project by slug (works for BOTH systems)
+ */
+export function getProjectBySlug(slug: string): ProjectConfig | null {
+  const projects = getAllProjects();
+  return projects.find((p) => p.slug === slug) || null;
 }
