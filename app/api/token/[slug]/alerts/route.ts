@@ -20,7 +20,15 @@ export async function GET(
   { params }: RouteContext
 ) {
   try {
-    const project = getProjectBySlug(params.slug);
+    const slug = params?.slug;
+    if (!slug) {
+      return Response.json(
+        { ok: false, error: "Missing project slug" },
+        { status: 400 }
+      );
+    }
+
+    const project = getProjectBySlug(slug);
 
     if (!project) {
       return Response.json(
@@ -37,76 +45,75 @@ export async function GET(
     const seen = new Set<string>();
 
     for (const wallet of project.wallets) {
-      const pubkey = new PublicKey(wallet.address);
-      const signatures = await connection.getSignaturesForAddress(pubkey, {
-        limit: 3,
-      });
-
-      for (const sig of signatures) {
-        if (seen.has(sig.signature)) continue;
-        seen.add(sig.signature);
-
-        let amount = 0;
-        let direction: "in" | "out" | "neutral" = "neutral";
-
-        try {
-          const tx = await connection.getParsedTransaction(sig.signature, {
-            maxSupportedTransactionVersion: 0,
-          });
-
-          const pre = tx?.meta?.preTokenBalances ?? [];
-          const post = tx?.meta?.postTokenBalances ?? [];
-
-          const preBalance = pre
-            .filter(
-              (b) => b.mint === project.mint && b.owner === wallet.address
-            )
-            .reduce(
-              (sum, b) => sum + Number(b.uiTokenAmount.uiAmount || 0),
-              0
-            );
-
-          const postBalance = post
-            .filter(
-              (b) => b.mint === project.mint && b.owner === wallet.address
-            )
-            .reduce(
-              (sum, b) => sum + Number(b.uiTokenAmount.uiAmount || 0),
-              0
-            );
-
-          const delta = postBalance - preBalance;
-          amount = Math.abs(delta);
-
-          if (delta > 0) direction = "in";
-          else if (delta < 0) direction = "out";
-        } catch (txError) {
-          console.error("Slug alert parse error:", sig.signature, txError);
-          continue;
-        }
-
-        if (amount <= 0) continue;
-
-        let severity: AlertSeverity = "info";
-        let message = `${wallet.label} moved ${amount.toLocaleString()} ${project.symbol}`;
-
-        if (amount >= 10_000_000) {
-          severity = "critical";
-        } else if (amount >= 1_000_000) {
-          severity = "warning";
-        }
-
-        alerts.push({
-          signature: sig.signature,
-          timestamp: sig.blockTime || 0,
-          wallet: wallet.label,
-          walletAddress: wallet.address,
-          category: wallet.category,
-          direction,
-          amount,
-          severity,
-          message,
+      try {
+        const pubkey = new PublicKey(wallet.address);
+        const signatures = await connection.getSignaturesForAddress(pubkey, {
+          limit: 2,
         });
+
+        for (const sig of signatures) {
+          if (seen.has(sig.signature)) continue;
+          seen.add(sig.signature);
+
+          let amount = 0;
+          let direction: "in" | "out" | "neutral" = "neutral";
+
+          try {
+            const tx = await connection.getParsedTransaction(sig.signature, {
+              maxSupportedTransactionVersion: 0,
+            });
+
+            const pre = tx?.meta?.preTokenBalances ?? [];
+            const post = tx?.meta?.postTokenBalances ?? [];
+
+            const preBalance = pre
+              .filter(
+                (b: any) => b.mint === project.mint && b.owner === wallet.address
+              )
+              .reduce(
+                (sum: number, b: any) => sum + Number(b.uiTokenAmount?.uiAmount || 0),
+                0
+              );
+
+            const postBalance = post
+              .filter(
+                (b: any) => b.mint === project.mint && b.owner === wallet.address
+              )
+              .reduce(
+                (sum: number, b: any) => sum + Number(b.uiTokenAmount?.uiAmount || 0),
+                0
+              );
+
+            const delta = postBalance - preBalance;
+            amount = Math.abs(delta);
+
+            if (delta > 0) direction = "in";
+            else if (delta < 0) direction = "out";
+          } catch (txError) {
+            console.error("Slug alert parse error:", sig.signature, txError);
+            continue;
+          }
+
+          if (amount <= 0) continue;
+
+          let severity: AlertSeverity = "info";
+          if (amount >= 10_000_000) severity = "critical";
+          else if (amount >= 1_000_000) severity = "warning";
+
+          alerts.push({
+            signature: sig.signature,
+            timestamp: sig.blockTime || 0,
+            wallet: wallet.label,
+            walletAddress: wallet.address,
+            category: wallet.category,
+            direction,
+            amount,
+            severity,
+            message: `${wallet.label} moved ${amount.toLocaleString()} ${project.symbol}`,
+          });
+        }
+      } catch (walletError) {
+        console.error("Slug alerts wallet error:", wallet.address, walletError);
       }
     }
 
@@ -129,6 +136,7 @@ export async function GET(
       {
         ok: false,
         error: "Failed to fetch project alerts",
+        detail: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

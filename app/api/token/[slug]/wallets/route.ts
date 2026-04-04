@@ -18,7 +18,15 @@ export async function GET(
   { params }: RouteContext
 ) {
   try {
-    const project = getProjectBySlug(params.slug);
+    const slug = params?.slug;
+    if (!slug) {
+      return Response.json(
+        { ok: false, error: "Missing project slug" },
+        { status: 400 }
+      );
+    }
+
+    const project = getProjectBySlug(slug);
 
     if (!project) {
       return Response.json(
@@ -51,25 +59,36 @@ export async function GET(
     const ownerToBalance = new Map<string, number>();
 
     for (const acct of tokenAccounts) {
-      const parsedInfo = (acct.account.data as any).parsed.info;
-      const owner = parsedInfo.owner as string;
-      const amount = Number(parsedInfo.tokenAmount.uiAmount || 0);
+      const parsed: any = acct.account.data;
+      const parsedInfo = parsed?.parsed?.info;
+      const owner = parsedInfo?.owner as string | undefined;
+      const amount = Number(parsedInfo?.tokenAmount?.uiAmount || 0);
 
+      if (!owner) continue;
       ownerToBalance.set(owner, (ownerToBalance.get(owner) || 0) + amount);
     }
 
     const wallets = await Promise.all(
       project.wallets.map(async (wallet) => {
-        const pubkey = new PublicKey(wallet.address);
-        const lamports = await connection.getBalance(pubkey);
-        const solBalance = lamports / LAMPORTS_PER_SOL;
-        const tokenBalance = ownerToBalance.get(wallet.address) || 0;
+        try {
+          const pubkey = new PublicKey(wallet.address);
+          const lamports = await connection.getBalance(pubkey);
+          const solBalance = lamports / LAMPORTS_PER_SOL;
+          const tokenBalance = ownerToBalance.get(wallet.address) || 0;
 
-        return {
-          ...wallet,
-          solBalance,
-          tokenBalance,
-        };
+          return {
+            ...wallet,
+            solBalance,
+            tokenBalance,
+          };
+        } catch (walletError) {
+          console.error("Wallet balance error:", wallet.address, walletError);
+          return {
+            ...wallet,
+            solBalance: 0,
+            tokenBalance: ownerToBalance.get(wallet.address) || 0,
+          };
+        }
       })
     );
 
@@ -90,6 +109,7 @@ export async function GET(
       {
         ok: false,
         error: "Failed to fetch project wallets",
+        detail: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );
