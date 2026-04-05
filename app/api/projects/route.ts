@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { saveProject, getProjects } from "@/lib/projectStore";
 
 export async function GET() {
-  const projects = getProjects();
+  const projects = await getProjects();
 
   return Response.json({
     ok: true,
@@ -22,15 +22,18 @@ export async function POST(req: Request) {
       );
     }
 
-    saveProject(body);
+    await saveProject(body);
 
     return Response.json({
       ok: true,
       message: "Project created",
     });
-  } catch (error) {
+  } catch (error: any) {
     return Response.json(
-      { ok: false, error: "Failed to create project" },
+      {
+        ok: false,
+        error: error?.message || "Failed to create project",
+      },
       { status: 500 }
     );
   }

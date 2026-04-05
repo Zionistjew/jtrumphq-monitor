@@ -28,7 +28,7 @@ export async function GET(
       );
     }
 
-    const project = getProjectBySlug(slug);
+    const project = await getProjectBySlug(slug);
 
     if (!project) {
       return Response.json(

@@ -1,9 +1,11 @@
-import { PROJECTS } from "@/lib/projects";
+import { getAllProjects } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default function HomePage() {
+export default async function HomePage() {
+  const projects = await getAllProjects();
+
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-7xl px-6 py-10 space-y-10">
@@ -19,16 +21,15 @@ export default function HomePage() {
 
             <p className="max-w-3xl text-lg text-zinc-300">
               Build branded transparency dashboards, wallet monitoring, and trust
-              signals for crypto projects. What started for JTRUMP can now become a
-              reusable analytics platform for other tokens.
+              signals for crypto projects.
             </p>
 
             <div className="flex flex-wrap gap-3 pt-2">
               <a
-                href="/token/jtrump"
+                href="/admin/create-project"
                 className="rounded-xl border border-red-700 bg-red-900/30 px-5 py-3 text-sm text-red-200 hover:bg-red-900/50"
               >
-                View JTRUMP Project
+                Create Project
               </a>
 
               <a
@@ -69,9 +70,9 @@ export default function HomePage() {
 
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
             <div className="text-sm text-zinc-400">Current Status</div>
-            <div className="mt-2 text-2xl font-bold">Prototype Live</div>
+            <div className="mt-2 text-2xl font-bold">Production Mode</div>
             <p className="mt-3 text-sm text-zinc-400">
-              JTRUMP is now your first live project example and proof of concept.
+              Projects are now stored in Supabase instead of local files.
             </p>
           </div>
         </section>
@@ -80,12 +81,12 @@ export default function HomePage() {
           <div className="mb-5 flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold">Projects</h2>
             <div className="text-sm text-zinc-500">
-              {PROJECTS.length} live project{PROJECTS.length === 1 ? "" : "s"}
+              {projects.length} live project{projects.length === 1 ? "" : "s"}
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {PROJECTS.map((project) => (
+            {projects.map((project) => (
               <a
                 key={project.slug}
                 href={`/token/${project.slug}`}

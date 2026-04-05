@@ -136,7 +136,7 @@ async function getProjectAlerts(slug: string): Promise<AlertsApiResponse | null>
 }
 
 export default async function TokenProjectPage({ params }: PageProps) {
-  const project = getProjectBySlug(params.slug);
+  const project = await getProjectBySlug(params.slug);
 
   if (!project) {
     return (
