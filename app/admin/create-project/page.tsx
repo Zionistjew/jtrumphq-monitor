@@ -15,6 +15,8 @@ export default function CreateProjectPage() {
   const [mint, setMint] = useState("");
   const [description, setDescription] = useState("");
   const [wallets, setWallets] = useState<WalletInput[]>([]);
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const addWallet = () => {
     setWallets([
@@ -30,11 +32,17 @@ export default function CreateProjectPage() {
   };
 
   const slugify = (text: string) =>
-    text.toLowerCase().replace(/\s+/g, "-");
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-");
 
   const handleSubmit = async () => {
+    setStatus("");
+
     if (!name || !symbol || !mint) {
-      alert("Please fill in Name, Symbol, and Mint");
+      setStatus("Please fill in Name, Symbol, and Mint.");
       return;
     }
 
@@ -54,6 +62,8 @@ export default function CreateProjectPage() {
     };
 
     try {
+      setLoading(true);
+
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: {
@@ -65,25 +75,25 @@ export default function CreateProjectPage() {
       const data = await res.json();
 
       if (data.ok) {
-        alert("Project Created 🚀");
-
-        // reset form
+        setStatus(`Project created successfully: /token/${slug}`);
         setName("");
         setSymbol("");
         setMint("");
         setDescription("");
         setWallets([]);
       } else {
-        alert("Error: " + data.error);
+        setStatus(`Create failed: ${data.error || "Unknown error"}`);
       }
-    } catch (err) {
-      alert("Network error creating project");
+    } catch (err: any) {
+      setStatus(`Network error: ${err?.message || "Unknown error"}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <main className="min-h-screen bg-black p-6 text-white">
+      <div className="mx-auto max-w-4xl space-y-6">
         <h1 className="text-3xl font-bold">Create Project</h1>
 
         <div className="grid gap-4">
@@ -91,28 +101,28 @@ export default function CreateProjectPage() {
             placeholder="Project Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="bg-zinc-900 p-3 rounded"
+            className="rounded bg-zinc-900 p-3"
           />
 
           <input
             placeholder="Symbol"
             value={symbol}
             onChange={(e) => setSymbol(e.target.value)}
-            className="bg-zinc-900 p-3 rounded"
+            className="rounded bg-zinc-900 p-3"
           />
 
           <input
             placeholder="Mint Address"
             value={mint}
             onChange={(e) => setMint(e.target.value)}
-            className="bg-zinc-900 p-3 rounded"
+            className="rounded bg-zinc-900 p-3"
           />
 
           <textarea
             placeholder="Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="bg-zinc-900 p-3 rounded"
+            className="rounded bg-zinc-900 p-3"
           />
         </div>
 
@@ -120,48 +130,40 @@ export default function CreateProjectPage() {
           <h2 className="text-xl font-semibold">Wallets</h2>
 
           {wallets.map((wallet, i) => (
-            <div key={i} className="grid gap-2 bg-zinc-900 p-4 rounded">
+            <div key={i} className="grid gap-2 rounded bg-zinc-900 p-4">
               <input
                 placeholder="Label"
                 value={wallet.label}
-                onChange={(e) =>
-                  updateWallet(i, "label", e.target.value)
-                }
-                className="p-2 bg-black rounded"
+                onChange={(e) => updateWallet(i, "label", e.target.value)}
+                className="rounded bg-black p-2"
               />
 
               <input
                 placeholder="Category (liquidity, treasury, dev, etc)"
                 value={wallet.category}
-                onChange={(e) =>
-                  updateWallet(i, "category", e.target.value)
-                }
-                className="p-2 bg-black rounded"
+                onChange={(e) => updateWallet(i, "category", e.target.value)}
+                className="rounded bg-black p-2"
               />
 
               <input
                 placeholder="Wallet Address"
                 value={wallet.address}
-                onChange={(e) =>
-                  updateWallet(i, "address", e.target.value)
-                }
-                className="p-2 bg-black rounded"
+                onChange={(e) => updateWallet(i, "address", e.target.value)}
+                className="rounded bg-black p-2"
               />
 
               <input
                 placeholder="Purpose"
                 value={wallet.purpose}
-                onChange={(e) =>
-                  updateWallet(i, "purpose", e.target.value)
-                }
-                className="p-2 bg-black rounded"
+                onChange={(e) => updateWallet(i, "purpose", e.target.value)}
+                className="rounded bg-black p-2"
               />
             </div>
           ))}
 
           <button
             onClick={addWallet}
-            className="bg-blue-600 px-4 py-2 rounded"
+            className="rounded bg-blue-600 px-4 py-2"
           >
             + Add Wallet
           </button>
@@ -169,10 +171,17 @@ export default function CreateProjectPage() {
 
         <button
           onClick={handleSubmit}
-          className="bg-green-600 px-6 py-3 rounded text-lg font-semibold"
+          disabled={loading}
+          className="rounded bg-green-600 px-6 py-3 text-lg font-semibold disabled:opacity-50"
         >
-          🚀 Create Project
+          {loading ? "Creating..." : "🚀 Create Project"}
         </button>
+
+        {status && (
+          <div className="rounded border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-300">
+            {status}
+          </div>
+        )}
       </div>
     </main>
   );
