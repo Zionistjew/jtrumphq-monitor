@@ -40,12 +40,20 @@ export async function POST(req: Request) {
       project,
     });
   } catch (error: any) {
+    const message = error?.message || "Failed to create project";
+
+    const isDuplicate =
+      message.includes("duplicate key value") ||
+      message.includes("projects_slug_key");
+
     return Response.json(
       {
         ok: false,
-        error: error?.message || "Failed to create project",
+        error: isDuplicate
+          ? "That slug already exists. Please choose a different slug."
+          : message,
       },
-      { status: 500 }
+      { status: isDuplicate ? 409 : 500 }
     );
   }
 }
