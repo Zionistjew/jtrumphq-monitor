@@ -8,14 +8,12 @@ export async function GET() {
 
     return Response.json({
       ok: true,
-      debug: "DEPLOY-CHECK-APR-7",
       projects,
     });
   } catch (error: any) {
     return Response.json(
       {
         ok: false,
-        debug: "DEPLOY-CHECK-APR-7",
         error: error?.message || "Failed to load projects",
       },
       { status: 500 }
@@ -38,7 +36,6 @@ export async function POST(req: Request) {
 
     return Response.json({
       ok: true,
-      debug: "DEPLOY-CHECK-APR-7",
       message: "Project created",
       project,
     });
@@ -46,7 +43,6 @@ export async function POST(req: Request) {
     return Response.json(
       {
         ok: false,
-        debug: "DEPLOY-CHECK-APR-7",
         error: error?.message || "Failed to create project",
       },
       { status: 500 }
