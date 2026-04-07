@@ -1,9 +1,9 @@
 "use client";
 
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState } from "react";
 
-export default function AdminLoginPage() {
+function AdminLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/admin/create-project";
@@ -83,5 +83,21 @@ export default function AdminLoginPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-black px-6 py-10 text-white">
+          <div className="mx-auto max-w-md rounded-3xl border border-neutral-800 bg-neutral-950 p-6">
+            <h1 className="text-3xl font-bold">Loading...</h1>
+          </div>
+        </main>
+      }
+    >
+      <AdminLoginForm />
+    </Suspense>
   );
 }
