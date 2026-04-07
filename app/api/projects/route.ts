@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { saveProject, getProjects } from "@/lib/projectStore";
+
 export async function GET() {
   try {
     const projects = await getProjects();
@@ -22,10 +23,6 @@ export async function GET() {
   }
 }
 
-    );
-  }
-}
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -41,6 +38,7 @@ export async function POST(req: Request) {
 
     return Response.json({
       ok: true,
+      debug: "DEPLOY-CHECK-APR-7",
       message: "Project created",
       project,
     });
@@ -48,6 +46,7 @@ export async function POST(req: Request) {
     return Response.json(
       {
         ok: false,
+        debug: "DEPLOY-CHECK-APR-7",
         error: error?.message || "Failed to create project",
       },
       { status: 500 }
