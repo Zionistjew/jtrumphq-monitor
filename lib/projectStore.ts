@@ -1,11 +1,23 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+function requireEnv(name: string, value: string | undefined) {
+  if (!value) {
+    throw new Error(`Missing environment variable: ${name}`);
+  }
+  return value;
+}
 
 export function getSupabaseAdmin() {
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+  const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL", supabaseUrl);
+  const serviceRoleKey = requireEnv(
+    "SUPABASE_SERVICE_ROLE_KEY",
+    supabaseServiceRoleKey
+  );
+
+  return createClient(url, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -22,8 +34,7 @@ export async function getProjects() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("getProjects error:", error);
-    return [];
+    throw new Error(`getProjects failed: ${error.message}`);
   }
 
   return data || [];
@@ -39,8 +50,7 @@ export async function getProjectBySlugFromStore(slug: string) {
     .single();
 
   if (error) {
-    console.error("getProjectBySlugFromStore error:", error);
-    return null;
+    throw new Error(`getProjectBySlugFromStore failed: ${error.message}`);
   }
 
   return data;
@@ -49,19 +59,23 @@ export async function getProjectBySlugFromStore(slug: string) {
 export async function saveProject(project: any) {
   const supabase = getSupabaseAdmin();
 
-  const { error } = await supabase.from("projects").insert({
-    slug: project.slug,
-    name: project.name,
-    symbol: project.symbol,
-    mint: project.mint,
-    description: project.description,
-    theme: project.theme,
-    wallets: project.wallets,
-  });
+  const { data, error } = await supabase
+    .from("projects")
+    .insert({
+      slug: project.slug,
+      name: project.name,
+      symbol: project.symbol,
+      mint: project.mint,
+      description: project.description,
+      theme: project.theme,
+      wallets: project.wallets,
+    })
+    .select()
+    .single();
 
   if (error) {
-    throw error;
+    throw new Error(`saveProject failed: ${error.message}`);
   }
 
-  return true;
+  return data;
 }
