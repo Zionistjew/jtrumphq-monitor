@@ -1,5 +1,6 @@
 import { createPaymentRecord } from "@/lib/paymentStore";
 import { PRICING, PlanKey, TokenKey } from "@/lib/pricing";
+import { getUsdcDestinationTokenAccount } from "@/lib/solanaPayments";
 
 export async function POST(req: Request) {
   try {
@@ -46,6 +47,10 @@ export async function POST(req: Request) {
         amount: payment.amount,
         amountUsd: payment.amount_usd,
         destinationWallet: payment.destination_wallet,
+        destinationTokenAccount:
+          payment.token === "USDC"
+            ? getUsdcDestinationTokenAccount(payment.destination_wallet)
+            : null,
         status: payment.status,
       },
     });

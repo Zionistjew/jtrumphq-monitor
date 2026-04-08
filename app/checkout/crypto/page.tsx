@@ -11,6 +11,7 @@ type PaymentResponse = {
   amount: number;
   amountUsd: number;
   destinationWallet: string;
+  destinationTokenAccount?: string | null;
   status: string;
 };
 
@@ -22,6 +23,11 @@ function CryptoCheckoutContent() {
   const [payment, setPayment] = useState<PaymentResponse | null>(null);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(true);
+
+  const [txSignature, setTxSignature] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const [verifySuccess, setVerifySuccess] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -64,6 +70,57 @@ function CryptoCheckoutContent() {
     };
   }, [plan, token]);
 
+  async function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!payment?.paymentId || !txSignature.trim()) {
+      setVerifyError("Transaction signature is required.");
+      return;
+    }
+
+    try {
+      setVerifyLoading(true);
+      setVerifyError("");
+      setVerifySuccess("");
+
+      const res = await fetch("/api/payments/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentId: payment.paymentId,
+          txSignature: txSignature.trim(),
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || "Verification failed.");
+      }
+
+      setVerifySuccess("Payment verified successfully.");
+      setPayment((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "confirmed",
+            }
+          : prev
+      );
+    } catch (e: any) {
+      setVerifyError(e?.message || "Verification failed.");
+    } finally {
+      setVerifyLoading(false);
+    }
+  }
+
+  const destinationToShow =
+    payment?.token === "USDC"
+      ? payment.destinationTokenAccount || payment.destinationWallet
+      : payment?.destinationWallet || "";
+
   return (
     <main className="min-h-screen bg-black px-6 py-10 text-white">
       <div className="mx-auto max-w-3xl rounded-3xl border border-neutral-800 bg-neutral-950 p-6">
@@ -94,14 +151,30 @@ function CryptoCheckoutContent() {
               <p>
                 <strong>USD Value:</strong> ${payment.amountUsd}
               </p>
+              <p>
+                <strong>Status:</strong>{" "}
+                <span
+                  className={
+                    payment.status === "confirmed"
+                      ? "text-emerald-300"
+                      : "text-amber-300"
+                  }
+                >
+                  {payment.status}
+                </span>
+              </p>
             </div>
 
             <div className="rounded-2xl border border-neutral-800 p-4">
               <p className="mb-2">
-                <strong>Send payment to:</strong>
+                <strong>
+                  {payment.token === "USDC"
+                    ? "Send USDC to token account:"
+                    : "Send payment to:"}
+                </strong>
               </p>
               <code className="block break-all rounded-xl bg-black p-3 text-sm">
-                {payment.destinationWallet}
+                {destinationToShow}
               </code>
             </div>
 
@@ -114,10 +187,48 @@ function CryptoCheckoutContent() {
               </code>
             </div>
 
-            <div className="rounded-2xl border border-amber-800 bg-amber-950/30 p-4 text-amber-200">
-              Send the exact amount and keep the transaction signature. Next
-              we’ll add automatic wallet-connect verification.
-            </div>
+            {payment.status !== "confirmed" && (
+              <form
+                onSubmit={handleVerify}
+                className="rounded-2xl border border-neutral-800 p-4"
+              >
+                <label className="mb-2 block text-sm text-neutral-300">
+                  Paste transaction signature
+                </label>
+                <input
+                  value={txSignature}
+                  onChange={(e) => setTxSignature(e.target.value)}
+                  className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 outline-none focus:border-red-700"
+                  placeholder="Transaction signature"
+                />
+
+                {verifyError && (
+                  <div className="mt-3 rounded-2xl border border-red-800 bg-red-950/40 px-4 py-3 text-red-300">
+                    {verifyError}
+                  </div>
+                )}
+
+                {verifySuccess && (
+                  <div className="mt-3 rounded-2xl border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-emerald-300">
+                    {verifySuccess}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={verifyLoading}
+                  className="mt-4 rounded-2xl bg-red-700 px-6 py-3 font-medium text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {verifyLoading ? "Verifying..." : "Verify Payment"}
+                </button>
+              </form>
+            )}
+
+            {payment.status === "confirmed" && (
+              <div className="rounded-2xl border border-emerald-800 bg-emerald-950/30 p-4 text-emerald-200">
+                Payment confirmed on-chain.
+              </div>
+            )}
           </div>
         )}
       </div>
