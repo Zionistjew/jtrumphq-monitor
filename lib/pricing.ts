@@ -1,20 +1,19 @@
 export const PRICING = {
   starter: {
     label: "Starter",
-    usdc: 29,
     sol: 0.2,
+    usd: 29,
   },
   pro: {
     label: "Pro",
-    usdc: 99,
     sol: 0.7,
+    usd: 99,
   },
   enterprise: {
     label: "Enterprise",
-    usdc: 499,
     sol: 3.5,
+    usd: 499,
   },
 } as const;
 
 export type PlanKey = keyof typeof PRICING;
-export type TokenKey = "USDC" | "SOL";

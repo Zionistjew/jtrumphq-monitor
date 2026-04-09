@@ -1,8 +1,5 @@
 import { getPaymentById, markPaymentConfirmed } from "@/lib/paymentStore";
-import {
-  getUsdcDestinationTokenAccount,
-  verifySolanaPayment,
-} from "@/lib/solanaPayments";
+import { verifySolanaPayment } from "@/lib/solanaPayments";
 
 export async function POST(req: Request) {
   try {
@@ -39,8 +36,15 @@ export async function POST(req: Request) {
       });
     }
 
+    if (payment.token !== "SOL") {
+      return Response.json(
+        { ok: false, error: "This checkout currently supports SOL only." },
+        { status: 400 }
+      );
+    }
+
     const verification = await verifySolanaPayment({
-      token: payment.token,
+      token: "SOL",
       amount: Number(payment.amount),
       txSignature,
       destinationWallet: payment.destination_wallet,
@@ -60,10 +64,7 @@ export async function POST(req: Request) {
         txSignature: confirmed.tx_signature,
         confirmedAt: confirmed.confirmed_at,
         payerWallet: confirmed.payer_wallet,
-        destinationAddress:
-          payment.token === "USDC"
-            ? await getUsdcDestinationTokenAccount(payment.destination_wallet)
-            : payment.destination_wallet,
+        destinationAddress: payment.destination_wallet,
       },
     });
   } catch (error: any) {

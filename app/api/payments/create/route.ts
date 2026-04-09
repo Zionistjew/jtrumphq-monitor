@@ -1,20 +1,17 @@
 import { createPaymentRecord } from "@/lib/paymentStore";
-import { PRICING, PlanKey, TokenKey } from "@/lib/pricing";
-import { getUsdcDestinationTokenAccount } from "@/lib/solanaPayments";
+import { PRICING, PlanKey } from "@/lib/pricing";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const plan = body?.plan as PlanKey;
-    const token = body?.token as TokenKey;
     const projectSlug = body?.projectSlug as string | undefined;
 
     if (!plan || !PRICING[plan]) {
-      return Response.json({ ok: false, error: "Invalid plan." }, { status: 400 });
-    }
-
-    if (!token || !["USDC", "SOL"].includes(token)) {
-      return Response.json({ ok: false, error: "Invalid token." }, { status: 400 });
+      return Response.json(
+        { ok: false, error: "Invalid plan." },
+        { status: 400 }
+      );
     }
 
     const destinationWallet = process.env.NEXT_PUBLIC_RECEIVING_WALLET;
@@ -25,22 +22,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const amount = token === "USDC" ? PRICING[plan].usdc : PRICING[plan].sol;
-    const amountUsd = PRICING[plan].usdc;
-
     const payment = await createPaymentRecord({
       projectSlug,
       plan,
-      token,
-      amount,
-      amountUsd,
+      token: "SOL",
+      amount: PRICING[plan].sol,
+      amountUsd: PRICING[plan].usd,
       destinationWallet,
     });
-
-    const destinationTokenAccount =
-      payment.token === "USDC"
-        ? await getUsdcDestinationTokenAccount(payment.destination_wallet)
-        : null;
 
     return Response.json({
       ok: true,
@@ -52,7 +41,6 @@ export async function POST(req: Request) {
         amount: payment.amount,
         amountUsd: payment.amount_usd,
         destinationWallet: payment.destination_wallet,
-        destinationTokenAccount,
         status: payment.status,
       },
     });

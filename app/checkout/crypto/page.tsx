@@ -7,18 +7,16 @@ type PaymentResponse = {
   paymentId: string;
   reference: string;
   plan: string;
-  token: "USDC" | "SOL";
+  token: "SOL";
   amount: number;
   amountUsd: number;
   destinationWallet: string;
-  destinationTokenAccount?: string | null;
   status: string;
 };
 
 function CryptoCheckoutContent() {
   const searchParams = useSearchParams();
   const plan = searchParams.get("plan") || "starter";
-  const token = (searchParams.get("token") || "USDC") as "USDC" | "SOL";
 
   const [payment, setPayment] = useState<PaymentResponse | null>(null);
   const [error, setError] = useState("");
@@ -40,7 +38,7 @@ function CryptoCheckoutContent() {
         const res = await fetch("/api/payments/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan, token }),
+          body: JSON.stringify({ plan }),
         });
 
         const json = await res.json();
@@ -68,7 +66,7 @@ function CryptoCheckoutContent() {
     return () => {
       active = false;
     };
-  }, [plan, token]);
+  }, [plan]);
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
@@ -116,11 +114,6 @@ function CryptoCheckoutContent() {
     }
   }
 
-  const destinationToShow =
-    payment?.token === "USDC"
-      ? payment.destinationTokenAccount || payment.destinationWallet
-      : payment?.destinationWallet || "";
-
   return (
     <main className="min-h-screen bg-black px-6 py-10 text-white">
       <div className="mx-auto max-w-4xl">
@@ -131,7 +124,7 @@ function CryptoCheckoutContent() {
             </p>
             <h1 className="mt-4 text-4xl font-bold">Complete Your Payment</h1>
             <p className="mt-2 text-neutral-400">
-              Pay with {token} on Solana and verify the transaction below.
+              Pay with SOL on Solana and verify the transaction below.
             </p>
           </div>
 
@@ -177,12 +170,10 @@ function CryptoCheckoutContent() {
 
               <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
                 <p className="text-sm text-neutral-400">
-                  {payment.token === "USDC"
-                    ? "Send USDC to this token account"
-                    : "Send payment to this wallet"}
+                  Send SOL to this wallet
                 </p>
                 <code className="mt-3 block break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
-                  {destinationToShow}
+                  {payment.destinationWallet}
                 </code>
               </div>
 
@@ -194,8 +185,8 @@ function CryptoCheckoutContent() {
               </div>
 
               <div className="rounded-2xl border border-amber-800 bg-amber-950/20 p-5 text-amber-200">
-                Send the exact amount shown above. After payment, copy the
-                transaction signature from your wallet and paste it below.
+                Send the exact SOL amount shown above to the wallet listed.
+                Do not send USDC or Ethereum assets for this checkout.
               </div>
 
               {payment.status !== "confirmed" && (
