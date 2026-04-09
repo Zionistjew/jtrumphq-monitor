@@ -1,254 +1,99 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 
-type PaymentResponse = {
-  paymentId: string;
-  reference: string;
-  plan: string;
-  token: "USDC" | "SOL";
-  amount: number;
-  amountUsd: number;
-  destinationWallet: string;
-  destinationTokenAccount?: string | null;
-  status: string;
-};
-
-function CryptoCheckoutContent() {
+function CheckoutInner() {
   const searchParams = useSearchParams();
   const plan = searchParams.get("plan") || "starter";
-  const token = (searchParams.get("token") || "USDC") as "USDC" | "SOL";
+  const token = searchParams.get("token") || "USDC";
 
-  const [payment, setPayment] = useState<PaymentResponse | null>(null);
-  const [error, setError] = useState("");
-  const [creating, setCreating] = useState(true);
-
-  const [txSignature, setTxSignature] = useState("");
-  const [verifyLoading, setVerifyLoading] = useState(false);
-  const [verifyError, setVerifyError] = useState("");
-  const [verifySuccess, setVerifySuccess] = useState("");
+  const [payment, setPayment] = useState<any>(null);
+  const [signature, setSignature] = useState("");
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let active = true;
-
     async function createPayment() {
-      try {
-        setCreating(true);
-        setError("");
-
-        const res = await fetch("/api/payments/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan, token }),
-        });
-
-        const json = await res.json();
-
-        if (!res.ok || !json.ok) {
-          throw new Error(json.error || "Failed to create payment.");
-        }
-
-        if (active) {
-          setPayment(json.payment);
-        }
-      } catch (e: any) {
-        if (active) {
-          setError(e?.message || "Failed to create payment.");
-        }
-      } finally {
-        if (active) {
-          setCreating(false);
-        }
-      }
-    }
-
-    createPayment();
-
-    return () => {
-      active = false;
-    };
-  }, [plan, token]);
-
-  async function handleVerify(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!payment?.paymentId || !txSignature.trim()) {
-      setVerifyError("Transaction signature is required.");
-      return;
-    }
-
-    try {
-      setVerifyLoading(true);
-      setVerifyError("");
-      setVerifySuccess("");
-
-      const res = await fetch("/api/payments/verify", {
+      const res = await fetch("/api/payments/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          paymentId: payment.paymentId,
-          txSignature: txSignature.trim(),
-        }),
+        body: JSON.stringify({ plan, token }),
       });
 
       const json = await res.json();
+      setPayment(json);
+      setLoading(false);
+    }
 
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "Verification failed.");
-      }
+    createPayment();
+  }, [plan, token]);
 
-      setVerifySuccess("Payment verified successfully.");
-      setPayment((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "confirmed",
-            }
-          : prev
-      );
-    } catch (e: any) {
-      setVerifyError(e?.message || "Verification failed.");
-    } finally {
-      setVerifyLoading(false);
+  async function verifyPayment() {
+    setStatus("Verifying...");
+
+    const res = await fetch("/api/payments/verify", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        reference: payment.reference,
+        signature,
+      }),
+    });
+
+    const json = await res.json();
+
+    if (json.ok) {
+      setStatus("✅ Payment verified!");
+    } else {
+      setStatus("❌ Payment failed");
     }
   }
 
-  const destinationToShow =
-    payment?.token === "USDC"
-      ? payment.destinationTokenAccount || payment.destinationWallet
-      : payment?.destinationWallet || "";
+  if (loading) {
+    return <p>Loading checkout...</p>;
+  }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-10 text-white">
-      <div className="mx-auto max-w-3xl rounded-3xl border border-neutral-800 bg-neutral-950 p-6">
-        <h1 className="text-3xl font-bold">Crypto Checkout</h1>
+    <div>
+      <h1>Crypto Checkout</h1>
 
-        {creating && (
-          <p className="mt-4 text-neutral-400">Preparing payment...</p>
-        )}
+      <p>Plan: {plan}</p>
+      <p>Token: {token}</p>
+      <p>Amount: {payment.amount}</p>
 
-        {error && (
-          <div className="mt-4 rounded-2xl border border-red-800 bg-red-950/40 px-4 py-3 text-red-300">
-            {error}
-          </div>
-        )}
+      <p>Send payment to:</p>
+      <p>{payment.address}</p>
 
-        {payment && (
-          <div className="mt-6 space-y-4">
-            <div className="rounded-2xl border border-neutral-800 p-4">
-              <p>
-                <strong>Plan:</strong> {payment.plan}
-              </p>
-              <p>
-                <strong>Token:</strong> {payment.token}
-              </p>
-              <p>
-                <strong>Amount:</strong> {payment.amount}
-              </p>
-              <p>
-                <strong>USD Value:</strong> ${payment.amountUsd}
-              </p>
-              <p>
-                <strong>Status:</strong>{" "}
-                <span
-                  className={
-                    payment.status === "confirmed"
-                      ? "text-emerald-300"
-                      : "text-amber-300"
-                  }
-                >
-                  {payment.status}
-                </span>
-              </p>
-            </div>
+      <p>Reference:</p>
+      <p>{payment.reference}</p>
 
-            <div className="rounded-2xl border border-neutral-800 p-4">
-              <p className="mb-2">
-                <strong>
-                  {payment.token === "USDC"
-                    ? "Send USDC to token account:"
-                    : "Send payment to:"}
-                </strong>
-              </p>
-              <code className="block break-all rounded-xl bg-black p-3 text-sm">
-                {destinationToShow}
-              </code>
-            </div>
+      {/* 🔥 THIS IS WHAT YOU ARE MISSING IN PRODUCTION */}
+      <div style={{ marginTop: 20 }}>
+        <input
+          placeholder="Paste transaction signature"
+          value={signature}
+          onChange={(e) => setSignature(e.target.value)}
+        />
 
-            <div className="rounded-2xl border border-neutral-800 p-4">
-              <p className="mb-2">
-                <strong>Reference:</strong>
-              </p>
-              <code className="block break-all rounded-xl bg-black p-3 text-sm">
-                {payment.reference}
-              </code>
-            </div>
+        <button onClick={verifyPayment}>
+          Verify Payment
+        </button>
 
-            {payment.status !== "confirmed" && (
-              <form
-                onSubmit={handleVerify}
-                className="rounded-2xl border border-neutral-800 p-4"
-              >
-                <label className="mb-2 block text-sm text-neutral-300">
-                  Paste transaction signature
-                </label>
-                <input
-                  value={txSignature}
-                  onChange={(e) => setTxSignature(e.target.value)}
-                  className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 outline-none focus:border-red-700"
-                  placeholder="Transaction signature"
-                />
-
-                {verifyError && (
-                  <div className="mt-3 rounded-2xl border border-red-800 bg-red-950/40 px-4 py-3 text-red-300">
-                    {verifyError}
-                  </div>
-                )}
-
-                {verifySuccess && (
-                  <div className="mt-3 rounded-2xl border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-emerald-300">
-                    {verifySuccess}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={verifyLoading}
-                  className="mt-4 rounded-2xl bg-red-700 px-6 py-3 font-medium text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {verifyLoading ? "Verifying..." : "Verify Payment"}
-                </button>
-              </form>
-            )}
-
-            {payment.status === "confirmed" && (
-              <div className="rounded-2xl border border-emerald-800 bg-emerald-950/30 p-4 text-emerald-200">
-                Payment confirmed on-chain.
-              </div>
-            )}
-          </div>
-        )}
+        <p>{status}</p>
       </div>
-    </main>
+    </div>
   );
 }
 
-export default function CryptoCheckoutPage() {
+export default function Page() {
   return (
-    <Suspense
-      fallback={
-        <main className="min-h-screen bg-black px-6 py-10 text-white">
-          <div className="mx-auto max-w-3xl rounded-3xl border border-neutral-800 bg-neutral-950 p-6">
-            <h1 className="text-3xl font-bold">Crypto Checkout</h1>
-            <p className="mt-4 text-neutral-400">Loading checkout...</p>
-          </div>
-        </main>
-      }
-    >
-      <CryptoCheckoutContent />
+    <Suspense fallback={<p>Loading checkout...</p>}>
+      <CheckoutInner />
     </Suspense>
   );
 }
