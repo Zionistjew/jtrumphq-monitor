@@ -62,7 +62,7 @@ export async function POST(req: Request) {
         payerWallet: confirmed.payer_wallet,
         destinationAddress:
           payment.token === "USDC"
-            ? getUsdcDestinationTokenAccount(payment.destination_wallet)
+            ? await getUsdcDestinationTokenAccount(payment.destination_wallet)
             : payment.destination_wallet,
       },
     });

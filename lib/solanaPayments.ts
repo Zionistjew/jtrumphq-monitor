@@ -5,7 +5,7 @@ import {
   PartiallyDecodedInstruction,
   PublicKey,
 } from "@solana/web3.js";
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { getAssociatedTokenAddress } from "@solana/spl-token";
 
 function requireEnv(name: string, value: string | undefined) {
   if (!value) throw new Error(`Missing environment variable: ${name}`);
@@ -33,9 +33,9 @@ export function getUsdcMint() {
   );
 }
 
-export function getUsdcDestinationTokenAccount(ownerAddress?: string) {
+export async function getUsdcDestinationTokenAccount(ownerAddress?: string) {
   const owner = ownerAddress || getReceivingWallet();
-  const ata = getAssociatedTokenAddressSync(
+  const ata = await getAssociatedTokenAddress(
     new PublicKey(getUsdcMint()),
     new PublicKey(owner)
   );
@@ -131,7 +131,7 @@ export async function verifySolanaPayment(input: {
   }
 
   const usdcMint = getUsdcMint();
-  const destinationTokenAccount = getUsdcDestinationTokenAccount(
+  const destinationTokenAccount = await getUsdcDestinationTokenAccount(
     input.destinationWallet
   );
   const expectedRaw = toRawTokenAmount(input.amount, 6);
@@ -163,3 +163,4 @@ export async function verifySolanaPayment(input: {
     destinationAddress: destinationTokenAccount,
   };
 }
+

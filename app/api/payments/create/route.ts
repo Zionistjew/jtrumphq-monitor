@@ -37,6 +37,11 @@ export async function POST(req: Request) {
       destinationWallet,
     });
 
+    const destinationTokenAccount =
+      payment.token === "USDC"
+        ? await getUsdcDestinationTokenAccount(payment.destination_wallet)
+        : null;
+
     return Response.json({
       ok: true,
       payment: {
@@ -47,10 +52,7 @@ export async function POST(req: Request) {
         amount: payment.amount,
         amountUsd: payment.amount_usd,
         destinationWallet: payment.destination_wallet,
-        destinationTokenAccount:
-          payment.token === "USDC"
-            ? getUsdcDestinationTokenAccount(payment.destination_wallet)
-            : null,
+        destinationTokenAccount,
         status: payment.status,
       },
     });
