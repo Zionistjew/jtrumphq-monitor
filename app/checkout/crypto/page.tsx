@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { QRCodeSVG } from "qrcode.react";
 
 type PaymentResponse = {
   paymentId: string;
@@ -144,6 +145,14 @@ function CryptoCheckoutContent() {
     }
   }
 
+  async function copyToClipboard(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      // no-op
+    }
+  }
+
   return (
     <main className="min-h-screen bg-black px-6 py-10 text-white">
       <div className="mx-auto max-w-4xl">
@@ -199,26 +208,75 @@ function CryptoCheckoutContent() {
               </div>
 
               <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
-                <p className="text-sm text-neutral-400">
+                <p className="mb-3 text-sm text-neutral-400">
                   Send SOL to this wallet
                 </p>
-                <code className="mt-3 block break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
-                  {payment.destinationWallet}
-                </code>
+
+                <div className="flex flex-col items-center gap-6 md:flex-row">
+                  <div className="rounded-xl bg-white p-3">
+                    <QRCodeSVG
+                      value={`solana:${payment.destinationWallet}?amount=${payment.amount}`}
+                      size={160}
+                    />
+                  </div>
+
+                  <div className="w-full space-y-4">
+                    <div>
+                      <p className="text-xs text-neutral-500">Wallet</p>
+                      <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center">
+                        <code className="break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
+                          {payment.destinationWallet}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(payment.destinationWallet)}
+                          className="rounded-xl border border-neutral-700 px-3 py-2 text-sm hover:border-neutral-500"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-neutral-500">Amount</p>
+                      <p className="mt-2 text-lg font-semibold">
+                        {payment.amount} SOL
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
                 <p className="text-sm text-neutral-400">Reference</p>
-                <code className="mt-3 block break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
-                  {payment.reference}
-                </code>
+                <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
+                  <code className="block break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
+                    {payment.reference}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(payment.reference)}
+                    className="rounded-xl border border-neutral-700 px-3 py-2 text-sm hover:border-neutral-500"
+                  >
+                    Copy
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
                 <p className="text-sm text-neutral-400">Payment ID</p>
-                <code className="mt-3 block break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
-                  {payment.paymentId}
-                </code>
+                <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
+                  <code className="block break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
+                    {payment.paymentId}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(payment.paymentId)}
+                    className="rounded-xl border border-neutral-700 px-3 py-2 text-sm hover:border-neutral-500"
+                  >
+                    Copy
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-amber-800 bg-amber-950/20 p-5 text-amber-200">
