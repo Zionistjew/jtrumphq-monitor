@@ -5,7 +5,14 @@ import {
   PartiallyDecodedInstruction,
   PublicKey,
 } from "@solana/web3.js";
-import { getAssociatedTokenAddress } from "@solana/spl-token";
+
+const TOKEN_PROGRAM_ID = new PublicKey(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
+  "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+);
 
 function requireEnv(name: string, value: string | undefined) {
   if (!value) throw new Error(`Missing environment variable: ${name}`);
@@ -34,11 +41,14 @@ export function getUsdcMint() {
 }
 
 export async function getUsdcDestinationTokenAccount(ownerAddress?: string) {
-  const owner = ownerAddress || getReceivingWallet();
-  const ata = await getAssociatedTokenAddress(
-    new PublicKey(getUsdcMint()),
-    new PublicKey(owner)
+  const owner = new PublicKey(ownerAddress || getReceivingWallet());
+  const mint = new PublicKey(getUsdcMint());
+
+  const [ata] = PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+    ASSOCIATED_TOKEN_PROGRAM_ID
   );
+
   return ata.toBase58();
 }
 
@@ -163,4 +173,3 @@ export async function verifySolanaPayment(input: {
     destinationAddress: destinationTokenAccount,
   };
 }
-
