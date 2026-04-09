@@ -1,8 +1,6 @@
 import {
   Connection,
   LAMPORTS_PER_SOL,
-  ParsedInstruction,
-  PartiallyDecodedInstruction,
   PublicKey,
 } from "@solana/web3.js";
 
@@ -56,6 +54,17 @@ function toRawTokenAmount(amount: number, decimals: number) {
   return BigInt(Math.round(amount * 10 ** decimals));
 }
 
+function getAccountKeyAtIndex(tx: any, index: number) {
+  const key = tx?.transaction?.message?.accountKeys?.[index];
+  if (!key) return "";
+
+  if (typeof key === "string") return key;
+  if (typeof key?.pubkey?.toBase58 === "function") return key.pubkey.toBase58();
+  if (typeof key?.toBase58 === "function") return key.toBase58();
+
+  return String(key);
+}
+
 function getPayerFromParsedTx(tx: any) {
   const firstKey = tx?.transaction?.message?.accountKeys?.[0];
   if (!firstKey) return undefined;
@@ -71,15 +80,14 @@ function getPayerFromParsedTx(tx: any) {
   return undefined;
 }
 
-function getAccountKeyAtIndex(tx: any, index: number) {
-  const key = tx?.transaction?.message?.accountKeys?.[index];
-  if (!key) return "";
-
-  if (typeof key === "string") return key;
-  if (typeof key?.pubkey?.toBase58 === "function") return key.pubkey.toBase58();
-  if (typeof key?.toBase58 === "function") return key.toBase58();
-
-  return String(key);
+function findAccountIndex(tx: any, targetAddress: string) {
+  const keys = tx?.transaction?.message?.accountKeys || [];
+  for (let i = 0; i < keys.length; i++) {
+    if (getAccountKeyAtIndex(tx, i) === targetAddress) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 export async function verifySolanaPayment(input: {
@@ -110,34 +118,33 @@ export async function verifySolanaPayment(input: {
       Math.round(input.amount * LAMPORTS_PER_SOL)
     );
 
-    const instructions =
-      tx.transaction.message.instructions as (
-        | ParsedInstruction
-        | PartiallyDecodedInstruction
-      )[];
+    const destinationIndex = findAccountIndex(tx, input.destinationWallet);
 
-    for (const ix of instructions) {
-      if (!("parsed" in ix)) continue;
-      if (ix.program !== "system") continue;
-      if (ix.parsed?.type !== "transfer") continue;
-
-      const info = ix.parsed.info;
-      const destination = info?.destination;
-      const lamports = info?.lamports;
-
-      if (
-        destination === input.destinationWallet &&
-        BigInt(lamports) === expectedLamports
-      ) {
-        return {
-          ok: true,
-          payerWallet,
-          destinationAddress: input.destinationWallet,
-        };
-      }
+    if (destinationIndex === -1) {
+      throw new Error("Destination wallet not found in transaction.");
     }
 
-    throw new Error("No matching SOL transfer found for this payment.");
+    const preBalances = tx.meta?.preBalances || [];
+    const postBalances = tx.meta?.postBalances || [];
+
+    const pre = BigInt(preBalances[destinationIndex] ?? 0);
+    const post = BigInt(postBalances[destinationIndex] ?? 0);
+    const delta = post - pre;
+
+    // allow tiny rounding / RPC differences
+    const toleranceLamports = BigInt(5000);
+
+    if (delta + toleranceLamports < expectedLamports) {
+      throw new Error(
+        `No matching SOL transfer found. Expected at least ${expectedLamports.toString()} lamports, found ${delta.toString()}.`
+      );
+    }
+
+    return {
+      ok: true,
+      payerWallet,
+      destinationAddress: input.destinationWallet,
+    };
   }
 
   const usdcMint = getUsdcMint();
@@ -164,7 +171,9 @@ export async function verifySolanaPayment(input: {
   const delta = postRaw - preRaw;
 
   if (delta !== expectedRaw) {
-    throw new Error("No matching USDC transfer found for this payment.");
+    throw new Error(
+      `No matching USDC transfer found. Expected ${expectedRaw.toString()}, found ${delta.toString()}.`
+    );
   }
 
   return {
