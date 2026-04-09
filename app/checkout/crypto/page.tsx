@@ -12,11 +12,15 @@ type PaymentResponse = {
   amountUsd: number;
   destinationWallet: string;
   status: string;
+  txSignature?: string | null;
+  confirmedAt?: string | null;
+  payerWallet?: string | null;
 };
 
 function CryptoCheckoutContent() {
   const searchParams = useSearchParams();
   const plan = searchParams.get("plan") || "starter";
+  const paymentIdFromUrl = searchParams.get("paymentId");
 
   const [payment, setPayment] = useState<PaymentResponse | null>(null);
   const [error, setError] = useState("");
@@ -30,10 +34,28 @@ function CryptoCheckoutContent() {
   useEffect(() => {
     let active = true;
 
-    async function createPayment() {
+    async function initPayment() {
       try {
         setCreating(true);
         setError("");
+
+        if (paymentIdFromUrl) {
+          const existingRes = await fetch(
+            `/api/payments/status/${paymentIdFromUrl}`,
+            {
+              cache: "no-store",
+            }
+          );
+
+          const existingJson = await existingRes.json();
+
+          if (existingRes.ok && existingJson.ok && existingJson.payment) {
+            if (active) {
+              setPayment(existingJson.payment);
+            }
+            return;
+          }
+        }
 
         const res = await fetch("/api/payments/create", {
           method: "POST",
@@ -49,6 +71,10 @@ function CryptoCheckoutContent() {
 
         if (active) {
           setPayment(json.payment);
+
+          const url = new URL(window.location.href);
+          url.searchParams.set("paymentId", json.payment.paymentId);
+          window.history.replaceState({}, "", url.toString());
         }
       } catch (e: any) {
         if (active) {
@@ -61,12 +87,12 @@ function CryptoCheckoutContent() {
       }
     }
 
-    createPayment();
+    initPayment();
 
     return () => {
       active = false;
     };
-  }, [plan]);
+  }, [plan, paymentIdFromUrl]);
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
@@ -99,11 +125,15 @@ function CryptoCheckoutContent() {
       }
 
       setVerifySuccess("Payment verified successfully.");
+
       setPayment((prev) =>
         prev
           ? {
               ...prev,
               status: "confirmed",
+              txSignature: json.payment?.txSignature ?? txSignature.trim(),
+              confirmedAt: json.payment?.confirmedAt ?? null,
+              payerWallet: json.payment?.payerWallet ?? null,
             }
           : prev
       );
@@ -184,9 +214,18 @@ function CryptoCheckoutContent() {
                 </code>
               </div>
 
+              <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
+                <p className="text-sm text-neutral-400">Payment ID</p>
+                <code className="mt-3 block break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
+                  {payment.paymentId}
+                </code>
+              </div>
+
               <div className="rounded-2xl border border-amber-800 bg-amber-950/20 p-5 text-amber-200">
                 Send the exact SOL amount shown above to the wallet listed.
-                Do not send USDC or Ethereum assets for this checkout.
+                Do not send USDC or Ethereum assets for this checkout. Do not
+                refresh the page after sending unless the URL still contains the
+                same paymentId.
               </div>
 
               {payment.status !== "confirmed" && (
