@@ -11,9 +11,16 @@ export async function GET(
       ok: true,
       payment: {
         paymentId: payment.payment_id,
+        reference: payment.reference,
+        plan: payment.plan,
+        token: payment.token,
+        amount: Number(payment.amount),
+        amountUsd: Number(payment.amount_usd),
+        destinationWallet: payment.destination_wallet,
         status: payment.status,
         txSignature: payment.tx_signature,
         confirmedAt: payment.confirmed_at,
+        payerWallet: payment.payer_wallet,
       },
     });
   } catch (error: any) {

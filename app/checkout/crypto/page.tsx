@@ -43,9 +43,7 @@ function CryptoCheckoutContent() {
         if (paymentIdFromUrl) {
           const existingRes = await fetch(
             `/api/payments/status/${paymentIdFromUrl}`,
-            {
-              cache: "no-store",
-            }
+            { cache: "no-store" }
           );
 
           const existingJson = await existingRes.json();
@@ -148,9 +146,7 @@ function CryptoCheckoutContent() {
   async function copyToClipboard(value: string) {
     try {
       await navigator.clipboard.writeText(value);
-    } catch {
-      // no-op
-    }
+    } catch {}
   }
 
   return (
