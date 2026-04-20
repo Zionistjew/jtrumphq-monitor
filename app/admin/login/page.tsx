@@ -3,10 +3,19 @@
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
+function isSafeInternalPath(path: string | null) {
+  if (!path) return false;
+  return path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/api/");
+}
+
 function AdminLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/admin/create-project";
+
+  const requestedNext = searchParams.get("next");
+  const nextPath = isSafeInternalPath(requestedNext)
+    ? requestedNext!
+    : "/admin/create-project";
 
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,6 +61,11 @@ function AdminLoginForm() {
         <p className="mt-2 text-neutral-400">
           Enter your admin password to continue.
         </p>
+
+        <div className="mt-4 rounded-2xl border border-neutral-800 bg-black/40 px-4 py-3 text-sm text-neutral-300">
+          Redirect after login:
+          <span className="ml-2 font-medium text-cyan-300">{nextPath}</span>
+        </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>

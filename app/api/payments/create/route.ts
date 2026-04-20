@@ -1,52 +1,63 @@
-import { createPaymentRecord } from "@/lib/paymentStore";
-import { PRICING, PlanKey } from "@/lib/pricing";
+import { NextRequest, NextResponse } from "next/server";
+import { isValidPlan, PLANS } from "@/lib/plans";
+import { RECEIVING_WALLET, solToLamports } from "@/lib/solana";
+import { randomId, store, type PaymentRecord } from "@/lib/store";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const plan = body?.plan as PlanKey;
-    const projectSlug = body?.projectSlug as string | undefined;
+    const plan = String(body.plan || "").toLowerCase();
 
-    if (!plan || !PRICING[plan]) {
-      return Response.json(
-        { ok: false, error: "Invalid plan." },
+    if (!isValidPlan(plan)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid plan" },
         { status: 400 }
       );
     }
 
-    const destinationWallet = process.env.NEXT_PUBLIC_RECEIVING_WALLET;
-    if (!destinationWallet) {
-      return Response.json(
-        { ok: false, error: "Receiving wallet not configured." },
+    if (!RECEIVING_WALLET) {
+      return NextResponse.json(
+        { ok: false, error: "SOLANA_RECEIVING_WALLET is not configured" },
         { status: 500 }
       );
     }
 
-    const payment = await createPaymentRecord({
-      projectSlug,
-      plan,
-      token: "SOL",
-      amount: PRICING[plan].sol,
-      amountUsd: PRICING[plan].usd,
-      destinationWallet,
-    });
+    const config = PLANS[plan];
+    const paymentId = randomId("pay");
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + 1000 * 60 * 30);
 
-    return Response.json({
+    const payment: PaymentRecord = {
+      id: paymentId,
+      plan,
+      amountSol: config.priceSol,
+      amountLamports: solToLamports(config.priceSol),
+      recipientWallet: RECEIVING_WALLET,
+      reference: paymentId,
+      memo: `JTRUMPHQ ${config.label} plan`,
+      status: "pending",
+      createdAt: createdAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+
+    store.createPayment(payment);
+
+    return NextResponse.json({
       ok: true,
-      payment: {
-        paymentId: payment.payment_id,
-        reference: payment.reference,
-        plan: payment.plan,
-        token: payment.token,
-        amount: payment.amount,
-        amountUsd: payment.amount_usd,
-        destinationWallet: payment.destination_wallet,
-        status: payment.status,
-      },
+      paymentId: payment.id,
+      plan: payment.plan,
+      amountSol: payment.amountSol,
+      amountLamports: payment.amountLamports,
+      recipientWallet: payment.recipientWallet,
+      reference: payment.reference,
+      memo: payment.memo,
+      status: payment.status,
+      createdAt: payment.createdAt,
+      expiresAt: payment.expiresAt,
     });
-  } catch (error: any) {
-    return Response.json(
-      { ok: false, error: error?.message || "Failed to create payment." },
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "Failed to create payment" },
       { status: 500 }
     );
   }

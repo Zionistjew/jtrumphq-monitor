@@ -32,6 +32,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!Array.isArray(body.wallets) || body.wallets.length === 0) {
+      return Response.json(
+        { ok: false, error: "At least one wallet is required" },
+        { status: 400 }
+      );
+    }
+
     const project = await saveProject(body);
 
     return Response.json({

@@ -1,55 +1,100 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { ADMIN_WALLET } from '@/lib/config'
-import { connectPhantom, signAuthMessage } from '@/lib/phantom'
-import { getNonce, verifySignature } from '@/lib/api'
+import { useState } from "react";
+import { connectPhantomWallet, signNonceMessage } from "@/lib/phantom";
 
 export default function ConnectButton() {
-  const [wallet, setWallet] = useState<string | null>(null)
-  const [status, setStatus] = useState('Connect Phantom')
+  const [walletAddress, setWalletAddress] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const onConnect = async () => {
+  async function handleConnect() {
+    setLoading(true);
+    setError("");
+
     try {
-      setStatus('Connecting...')
-      const address = await connectPhantom()
-      if (!address) throw new Error('Wallet not found')
+      const { walletAddress } = await connectPhantomWallet();
+      setWalletAddress(walletAddress);
+    } catch (err: any) {
+      setError(err?.message || "Failed to connect Phantom");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-      setWallet(address)
+  async function handleSignIn() {
+    setLoading(true);
+    setError("");
 
-      const { nonce } = await getNonce(address)
-      const message = `JTRUMPHQ admin login\nWallet: ${address}\nNonce: ${nonce}`
-      const signature = await signAuthMessage(message)
+    try {
+      const { walletAddress } = await connectPhantomWallet();
+      setWalletAddress(walletAddress);
 
-      const result = await verifySignature({
-        walletAddress: address,
-        message,
-        signature,
-      })
+      const nonceRes = await fetch("/api/auth/wallet/nonce", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress }),
+      });
 
-      if (result.ok && result.isAdmin) {
-        setStatus('Admin Connected')
-      } else if (result.ok) {
-        setStatus('Connected')
-      } else {
-        setStatus('Connect Failed')
+      const nonceData = await nonceRes.json();
+
+      if (!nonceData.ok) {
+        throw new Error(nonceData.error || "Failed to get nonce");
       }
-    } catch (err) {
-      console.error(err)
-      setStatus('Connect Failed')
+
+      const signature = await signNonceMessage(nonceData.message);
+
+      const verifyRes = await fetch("/api/auth/wallet/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          walletAddress,
+          message: nonceData.message,
+          signature,
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+
+      if (!verifyData.ok) {
+        throw new Error(verifyData.error || "Wallet sign-in failed");
+      }
+
+      window.location.href = "/dashboard";
+    } catch (err: any) {
+      setError(err?.message || "Failed to sign in with wallet");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <button className="btn" onClick={onConnect}>
-        {status}
+    <div className="space-y-3">
+      <button
+        onClick={handleConnect}
+        disabled={loading}
+        className="rounded-xl bg-white px-4 py-3 font-semibold text-black disabled:opacity-50"
+      >
+        {loading
+          ? "Working..."
+          : walletAddress
+          ? `Connected: ${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`
+          : "Connect Phantom"}
       </button>
-      {wallet ? (
-        <span className="text-sm text-zinc-400">
-          {wallet.slice(0, 4)}...{wallet.slice(-4)}
-        </span>
+
+      <button
+        onClick={handleSignIn}
+        disabled={loading}
+        className="rounded-xl border border-zinc-700 px-4 py-3 font-semibold text-white disabled:opacity-50"
+      >
+        Sign In With Wallet
+      </button>
+
+      {error ? (
+        <div className="rounded-xl border border-red-800 bg-red-950 px-4 py-3 text-red-300">
+          {error}
+        </div>
       ) : null}
     </div>
-  )
+  );
 }

@@ -1,27 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
-
-const LOGIN_PATH = "/admin/login";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
   const adminSession = request.cookies.get("admin_session")?.value;
-  const isLoginPage = pathname === LOGIN_PATH;
 
-  const isProtected =
-    pathname === "/admin" ||
-    pathname === "/admin/create-project" ||
-    pathname.startsWith("/admin/create-project/");
+  const isAdminRoute =
+    pathname.startsWith("/admin") && !pathname.startsWith("/admin/login");
 
-  if (isLoginPage) {
-    if (adminSession === "authenticated") {
-      return NextResponse.redirect(new URL("/admin/create-project", request.url));
-    }
-    return NextResponse.next();
-  }
+  if (isAdminRoute && !adminSession) {
+    const loginUrl = new URL("/admin/login", request.url);
 
-  if (isProtected && adminSession !== "authenticated") {
-    const loginUrl = new URL(LOGIN_PATH, request.url);
-    loginUrl.searchParams.set("next", pathname);
+    const originalDestination = `${pathname}${search || ""}`;
+    loginUrl.searchParams.set("next", originalDestination);
+
     return NextResponse.redirect(loginUrl);
   }
 

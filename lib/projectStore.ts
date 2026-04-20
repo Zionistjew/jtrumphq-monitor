@@ -25,6 +25,25 @@ export function getSupabaseAdmin() {
   });
 }
 
+function normalizeWallet(wallet: any) {
+  return {
+    label: String(wallet?.label || "").trim(),
+    category: String(wallet?.category || "").trim(),
+    address: String(wallet?.address || "").trim(),
+    purpose: String(wallet?.purpose || "").trim(),
+    allocation: Number(wallet?.allocation || 0),
+  };
+}
+
+function normalizeProject(project: any) {
+  return {
+    ...project,
+    wallets: Array.isArray(project?.wallets)
+      ? project.wallets.map(normalizeWallet)
+      : [],
+  };
+}
+
 export async function getProjects() {
   const supabase = getSupabaseAdmin();
 
@@ -37,7 +56,7 @@ export async function getProjects() {
     throw new Error(`getProjects failed: ${error.message}`);
   }
 
-  return data || [];
+  return (data || []).map(normalizeProject);
 }
 
 export async function getProjectBySlugFromStore(slug: string) {
@@ -53,23 +72,30 @@ export async function getProjectBySlugFromStore(slug: string) {
     throw new Error(`getProjectBySlugFromStore failed: ${error.message}`);
   }
 
-  return data;
+  return normalizeProject(data);
 }
 
 export async function saveProject(project: any) {
   const supabase = getSupabaseAdmin();
 
+  const normalizedProject = {
+    slug: String(project?.slug || "").trim(),
+    name: String(project?.name || "").trim(),
+    symbol: String(project?.symbol || "").trim(),
+    mint: String(project?.mint || "").trim(),
+    description: String(project?.description || "").trim(),
+    theme: {
+      primary: String(project?.theme?.primary || "cyan").trim(),
+      accent: String(project?.theme?.accent || "zinc").trim(),
+    },
+    wallets: Array.isArray(project?.wallets)
+      ? project.wallets.map(normalizeWallet)
+      : [],
+  };
+
   const { data, error } = await supabase
     .from("projects")
-    .insert({
-      slug: project.slug,
-      name: project.name,
-      symbol: project.symbol,
-      mint: project.mint,
-      description: project.description,
-      theme: project.theme,
-      wallets: project.wallets,
-    })
+    .insert(normalizedProject)
     .select()
     .single();
 
@@ -77,5 +103,5 @@ export async function saveProject(project: any) {
     throw new Error(`saveProject failed: ${error.message}`);
   }
 
-  return data;
+  return normalizeProject(data);
 }

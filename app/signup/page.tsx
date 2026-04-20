@@ -1,0 +1,88 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+
+export default function SignupPage() {
+  const supabase = createClient();
+  const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function handleSignup(e: React.FormEvent) {
+    e.preventDefault();
+
+    setError("");
+    setMessage("");
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
+    setMessage("Account created successfully. Redirecting to login...");
+
+    setTimeout(() => {
+      router.push("/login");
+      router.refresh();
+    }, 1000);
+  }
+
+  return (
+    <main className="mx-auto max-w-md p-6">
+      <h1 className="mb-4 text-2xl font-bold">
+        Create Account
+      </h1>
+
+      <form onSubmit={handleSignup} className="space-y-4">
+
+        <input
+          className="w-full rounded border p-3 text-black"
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+
+        <input
+          className="w-full rounded border p-3 text-black"
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+
+        {error && (
+          <p className="text-red-600">
+            {error}
+          </p>
+        )}
+
+        {message && (
+          <p className="text-green-600">
+            {message}
+          </p>
+        )}
+
+        <button
+          className="w-full rounded bg-black p-3 text-white"
+          type="submit"
+        >
+          Sign Up
+        </button>
+
+      </form>
+    </main>
+  );
+}

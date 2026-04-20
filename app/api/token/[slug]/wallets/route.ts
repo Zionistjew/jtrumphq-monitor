@@ -1,6 +1,3 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 import { getProjectBySlug } from "@/lib/projects";
 import { fetchWalletSnapshots } from "@/server/walletMonitor";
 
@@ -10,10 +7,21 @@ type RouteContext = {
   };
 };
 
-export async function GET(
-  _request: Request,
-  { params }: RouteContext
-) {
+type TokenAccountSnapshot = {
+  mint?: string;
+  amount?: number;
+};
+
+type WalletSnapshot = {
+  address: string;
+  solBalance?: number;
+  tokenAccounts?: TokenAccountSnapshot[];
+};
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export async function GET(_request: Request, { params }: RouteContext) {
   try {
     const slug = params?.slug;
 
@@ -33,19 +41,26 @@ export async function GET(
       );
     }
 
-    const snapshots = await fetchWalletSnapshots();
+    const snapshots = (await fetchWalletSnapshots(
+      project.wallets,
+      project.mint
+    )) as WalletSnapshot[];
 
     const snapshotMap = new Map(
-      snapshots.map((wallet: any) => [wallet.address, wallet])
+      snapshots.map((wallet) => [wallet.address, wallet])
     );
 
     const wallets = project.wallets.map((wallet) => {
       const snap = snapshotMap.get(wallet.address);
 
+      const tokenAccount = snap?.tokenAccounts?.find(
+        (account) => account.mint === project.mint
+      );
+
       return {
         ...wallet,
         solBalance: snap?.solBalance ?? 0,
-        tokenBalance: snap?.jtrumpBalance ?? 0,
+        tokenBalance: tokenAccount?.amount ?? 0,
         tokenAccounts: snap?.tokenAccounts ?? [],
       };
     });

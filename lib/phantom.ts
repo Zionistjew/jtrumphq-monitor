@@ -1,50 +1,86 @@
-'use client'
+import {
+  Connection,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 
-import { BrowserSDK, AddressType } from '@phantom/browser-sdk'
-import bs58 from 'bs58'
-
-export const sdk = new BrowserSDK({
-  providers: ['injected'],
-  addressTypes: [AddressType.solana],
-  appId: process.env.NEXT_PUBLIC_PHANTOM_APP_ID || 'jtrumphq',
-})
-
-export async function connectPhantom() {
-  try {
-    const { addresses } = await sdk.connect({ provider: 'injected' })
-    const solanaAddress = addresses.find(
-      (a: any) => a.addressType === AddressType.solana || a.type === AddressType.solana
-    )
-    return solanaAddress?.address ?? null
-  } catch (err) {
-    console.error('Phantom connect error:', err)
-    return null
+declare global {
+  interface Window {
+    phantom?: {
+      solana?: {
+        isPhantom?: boolean;
+        publicKey?: { toString(): string };
+        connect: () => Promise<{ publicKey: { toString(): string } }>;
+        signMessage: (
+          message: Uint8Array | string,
+          display?: "utf8" | "hex"
+        ) => Promise<{ signature: Uint8Array }>;
+        signAndSendTransaction: (
+          transaction: Transaction
+        ) => Promise<{ signature: string }>;
+      };
+    };
   }
 }
 
-export async function signAuthMessage(message: string) {
-  try {
-    const result: any = await sdk.solana.signMessage(message)
+export function getPhantomProvider() {
+  if (typeof window === "undefined") return null;
+  return window?.phantom?.solana ?? null;
+}
 
-    // Normalize the SDK response shape
-    const rawSignature =
-      result?.signature ??
-      result?.sig ??
-      result
+export async function connectPhantomWallet() {
+  const provider = getPhantomProvider();
 
-    if (!rawSignature) {
-      throw new Error('No signature returned from Phantom')
-    }
-
-    // Convert Uint8Array/Buffer-like into base58 for server verification
-    const signatureBase58 =
-      typeof rawSignature === 'string'
-        ? rawSignature
-        : bs58.encode(new Uint8Array(rawSignature))
-
-    return signatureBase58
-  } catch (err) {
-    console.error('Sign error:', err)
-    throw err
+  if (!provider?.isPhantom) {
+    throw new Error("Phantom wallet not found. Please install Phantom.");
   }
+
+  const res = await provider.connect();
+
+  return {
+    provider,
+    walletAddress: res.publicKey.toString(),
+  };
+}
+
+export async function signNonceMessage(message: string) {
+  const provider = getPhantomProvider();
+
+  if (!provider?.isPhantom) {
+    throw new Error("Phantom wallet not found.");
+  }
+
+  const encoded = new TextEncoder().encode(message);
+  const result = await provider.signMessage(encoded, "utf8");
+  return Array.from(result.signature);
+}
+
+export async function sendSolPayment(params: {
+  rpcUrl: string;
+  fromWallet: string;
+  toWallet: string;
+  lamports: number;
+}) {
+  const provider = getPhantomProvider();
+  if (!provider?.isPhantom) {
+    throw new Error("Phantom wallet not found.");
+  }
+
+  const connection = new Connection(params.rpcUrl, "confirmed");
+  const { blockhash } = await connection.getLatestBlockhash("finalized");
+
+  const tx = new Transaction({
+    feePayer: new PublicKey(params.fromWallet),
+    recentBlockhash: blockhash,
+  }).add(
+    SystemProgram.transfer({
+      fromPubkey: new PublicKey(params.fromWallet),
+      toPubkey: new PublicKey(params.toWallet),
+      lamports: params.lamports,
+    })
+  );
+
+  const result = await provider.signAndSendTransaction(tx);
+  return { signature: result.signature };
 }

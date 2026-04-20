@@ -1,56 +1,50 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-type WalletInput = {
+type WalletForm = {
   label: string;
   category: string;
   address: string;
   purpose: string;
+  allocation: string;
 };
 
-type ThemeInput = {
-  primary: string;
-  accent: string;
-};
+const emptyWallet = (): WalletForm => ({
+  label: "",
+  category: "treasury",
+  address: "",
+  purpose: "",
+  allocation: "",
+});
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
 
 export default function CreateProjectPage() {
-  const router = useRouter();
-
-  const [slug, setSlug] = useState("");
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
+  const [slug, setSlug] = useState("");
   const [mint, setMint] = useState("");
   const [description, setDescription] = useState("");
-  const [theme, setTheme] = useState<ThemeInput>({
-    primary: "red",
-    accent: "zinc",
-  });
+  const [primaryColor, setPrimaryColor] = useState("cyan");
+  const [accentColor, setAccentColor] = useState("zinc");
+  const [wallets, setWallets] = useState<WalletForm[]>([emptyWallet()]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [createdSlug, setCreatedSlug] = useState("");
 
-  const [wallets, setWallets] = useState<WalletInput[]>([
-    {
-      label: "",
-      category: "treasury",
-      address: "",
-      purpose: "",
-    },
-  ]);
+  const suggestedSlug = useMemo(() => slugify(name), [name]);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-
-  const normalizedSlug = useMemo(() => {
-    return slug
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
-  }, [slug]);
-
-  function updateWallet(index: number, field: keyof WalletInput, value: string) {
+  function updateWallet(index: number, field: keyof WalletForm, value: string) {
     setWallets((prev) =>
       prev.map((wallet, i) =>
         i === index ? { ...wallet, [field]: value } : wallet
@@ -59,311 +53,406 @@ export default function CreateProjectPage() {
   }
 
   function addWallet() {
-    setWallets((prev) => [
-      ...prev,
-      {
-        label: "",
-        category: "treasury",
-        address: "",
-        purpose: "",
-      },
-    ]);
+    setWallets((prev) => [...prev, emptyWallet()]);
   }
 
   function removeWallet(index: number) {
     setWallets((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setIsSubmitting(true);
-    setErrorMessage("");
-    setSuccessMessage("");
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    setCreatedSlug("");
+
+    const finalSlug = slugify(slug || suggestedSlug);
+
+    const cleanedWallets = wallets
+      .map((wallet) => ({
+        label: wallet.label.trim(),
+        category: wallet.category.trim(),
+        address: wallet.address.trim(),
+        purpose: wallet.purpose.trim(),
+        allocation: Number(wallet.allocation || 0),
+      }))
+      .filter((wallet) => wallet.label && wallet.address);
+
+    if (!name.trim()) {
+      setLoading(false);
+      setError("Project name is required.");
+      return;
+    }
+
+    if (!symbol.trim()) {
+      setLoading(false);
+      setError("Project symbol is required.");
+      return;
+    }
+
+    if (!finalSlug) {
+      setLoading(false);
+      setError("Project slug is required.");
+      return;
+    }
+
+    if (!mint.trim()) {
+      setLoading(false);
+      setError("Mint address is required.");
+      return;
+    }
+
+    if (cleanedWallets.length === 0) {
+      setLoading(false);
+      setError("Add at least one wallet before creating the project.");
+      return;
+    }
 
     try {
-      if (!normalizedSlug || !name.trim() || !mint.trim()) {
-        throw new Error("Slug, name, and mint are required.");
-      }
-
-      const existingRes = await fetch("/api/projects", {
-        cache: "no-store",
-      });
-
-      const existingJson = await existingRes.json();
-
-      if (!existingRes.ok) {
-        throw new Error(existingJson.error || "Failed to check existing projects.");
-      }
-
-      const existingProjects = Array.isArray(existingJson.projects)
-        ? existingJson.projects
-        : [];
-
-      const duplicate = existingProjects.find(
-        (project: any) => project.slug?.toLowerCase() === normalizedSlug
-      );
-
-      if (duplicate) {
-        throw new Error(`Slug "${normalizedSlug}" already exists. Use a different slug.`);
-      }
-
-      const cleanWallets = wallets
-        .map((wallet) => ({
-          label: wallet.label.trim(),
-          category: wallet.category.trim(),
-          address: wallet.address.trim(),
-          purpose: wallet.purpose.trim(),
-        }))
-        .filter(
-          (wallet) =>
-            wallet.label || wallet.category || wallet.address || wallet.purpose
-        );
-
-      const payload = {
-        slug: normalizedSlug,
-        name: name.trim(),
-        symbol: symbol.trim(),
-        mint: mint.trim(),
-        description: description.trim(),
-        theme,
-        wallets: cleanWallets,
-      };
-
-      const res = await fetch("/api/projects", {
+      const response = await fetch("/api/projects", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          slug: finalSlug,
+          name: name.trim(),
+          symbol: symbol.trim().toUpperCase(),
+          mint: mint.trim(),
+          description: description.trim(),
+          theme: {
+            primary: primaryColor,
+            accent: accentColor,
+          },
+          wallets: cleanedWallets,
+        }),
       });
 
-      const json = await res.json();
+      const data = await response.json().catch(() => null);
 
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "Failed to create project.");
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to create project.");
       }
 
-      setSuccessMessage(`Project "${payload.name}" created successfully. Redirecting...`);
-
-      setTimeout(() => {
-        router.push(`/token/${payload.slug}`);
-      }, 900);
-    } catch (error: any) {
-      setErrorMessage(error?.message || "Something went wrong.");
+      setCreatedSlug(finalSlug);
+      setSuccess("Project created successfully.");
+      setName("");
+      setSymbol("");
+      setSlug("");
+      setMint("");
+      setDescription("");
+      setPrimaryColor("cyan");
+      setAccentColor("zinc");
+      setWallets([emptyWallet()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-10 text-white">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8">
-          <p className="inline-block rounded-full border border-red-700 px-4 py-1 text-xs uppercase tracking-[0.3em] text-red-300">
-            Admin
-          </p>
-          <h1 className="mt-4 text-4xl font-bold">Create Project</h1>
-          <p className="mt-2 text-neutral-400">
-            Add a new token transparency dashboard project.
+    <main className="min-h-screen bg-black text-white">
+      <section className="mx-auto max-w-5xl px-6 py-12">
+        <div className="mb-10">
+          <div className="inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-300">
+            Admin Project Setup
+          </div>
+
+          <h1 className="mt-5 text-4xl font-bold">Create Project</h1>
+          <p className="mt-3 max-w-3xl text-zinc-400">
+            Set up a new transparency project, assign its wallets, define intended
+            allocations, and publish it into the WEB3MB public directory.
           </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-6 rounded-3xl border border-neutral-800 bg-neutral-950 p-6"
-        >
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm text-neutral-300">
-                Project Name
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-8">
+            <h2 className="text-2xl font-semibold">Project Details</h2>
+
+            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-zinc-300">
+                  Project Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="WEB3MB Demo Token"
+                  className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-zinc-300">
+                  Symbol
+                </label>
+                <input
+                  type="text"
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                  placeholder="WDT"
+                  className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-zinc-300">
+                  Slug
+                </label>
+                <input
+                  type="text"
+                  value={slug}
+                  onChange={(e) => setSlug(slugify(e.target.value))}
+                  placeholder={suggestedSlug || "web3mb-demo-token"}
+                  className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                />
+                <p className="mt-2 text-xs text-zinc-500">
+                  Public URL preview: /token/{slug || suggestedSlug || "your-project-slug"}
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-zinc-300">
+                  Mint Address
+                </label>
+                <input
+                  type="text"
+                  value={mint}
+                  onChange={(e) => setMint(e.target.value)}
+                  placeholder="Enter Solana mint address"
+                  className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <label className="mb-2 block text-sm font-medium text-zinc-300">
+                Description
               </label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 outline-none focus:border-red-700"
-                placeholder="Test Alpha 4"
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                placeholder="Describe the project, its purpose, and what users should know."
+                className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
               />
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm text-neutral-300">
-                Symbol
-              </label>
-              <input
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 outline-none focus:border-red-700"
-                placeholder="TA4"
-              />
-            </div>
+            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-zinc-300">
+                  Primary Theme Color
+                </label>
+                <select
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                >
+                  <option value="cyan">cyan</option>
+                  <option value="blue">blue</option>
+                  <option value="emerald">emerald</option>
+                  <option value="purple">purple</option>
+                  <option value="red">red</option>
+                  <option value="amber">amber</option>
+                </select>
+              </div>
 
-            <div>
-              <label className="mb-2 block text-sm text-neutral-300">
-                Slug
-              </label>
-              <input
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 outline-none focus:border-red-700"
-                placeholder="test-alpha-4"
-              />
-              <p className="mt-2 text-xs text-neutral-500">
-                Normalized slug:{" "}
-                <span className="text-neutral-300">{normalizedSlug || "—"}</span>
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-neutral-300">
-                Mint
-              </label>
-              <input
-                value={mint}
-                onChange={(e) => setMint(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 outline-none focus:border-red-700"
-                placeholder="Token mint address"
-              />
+              <div>
+                <label className="mb-2 block text-sm font-medium text-zinc-300">
+                  Accent Color
+                </label>
+                <select
+                  value={accentColor}
+                  onChange={(e) => setAccentColor(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                >
+                  <option value="zinc">zinc</option>
+                  <option value="slate">slate</option>
+                  <option value="gray">gray</option>
+                  <option value="neutral">neutral</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm text-neutral-300">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[110px] w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 outline-none focus:border-red-700"
-              placeholder="Describe the project..."
-            />
-          </div>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-8">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold">Wallets</h2>
+                <p className="mt-2 text-zinc-400">
+                  Add treasury, liquidity, development, community, or other
+                  public wallets tied to this project. Allocation is the intended
+                  number of project tokens for that wallet.
+                </p>
+              </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm text-neutral-300">
-                Theme Primary
-              </label>
-              <input
-                value={theme.primary}
-                onChange={(e) =>
-                  setTheme((prev) => ({ ...prev, primary: e.target.value }))
-                }
-                className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 outline-none focus:border-red-700"
-                placeholder="red"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-neutral-300">
-                Theme Accent
-              </label>
-              <input
-                value={theme.accent}
-                onChange={(e) =>
-                  setTheme((prev) => ({ ...prev, accent: e.target.value }))
-                }
-                className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 outline-none focus:border-red-700"
-                placeholder="zinc"
-              />
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-neutral-800 p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Wallets</h2>
               <button
                 type="button"
                 onClick={addWallet}
-                className="rounded-xl border border-neutral-700 px-4 py-2 text-sm hover:border-red-700"
+                className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-5 py-3 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/20"
               >
                 Add Wallet
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="mt-8 space-y-6">
               {wallets.map((wallet, index) => (
                 <div
                   key={index}
-                  className="grid gap-3 rounded-2xl border border-neutral-800 bg-black p-4 md:grid-cols-2"
+                  className="rounded-2xl border border-zinc-800 bg-black/30 p-6"
                 >
-                  <input
-                    value={wallet.label}
-                    onChange={(e) => updateWallet(index, "label", e.target.value)}
-                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 outline-none focus:border-red-700"
-                    placeholder="Wallet label"
-                  />
-                  <input
-                    value={wallet.category}
-                    onChange={(e) =>
-                      updateWallet(index, "category", e.target.value)
-                    }
-                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 outline-none focus:border-red-700"
-                    placeholder="treasury"
-                  />
-                  <input
-                    value={wallet.address}
-                    onChange={(e) =>
-                      updateWallet(index, "address", e.target.value)
-                    }
-                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 outline-none focus:border-red-700 md:col-span-2"
-                    placeholder="Wallet address"
-                  />
-                  <input
-                    value={wallet.purpose}
-                    onChange={(e) =>
-                      updateWallet(index, "purpose", e.target.value)
-                    }
-                    className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 outline-none focus:border-red-700 md:col-span-2"
-                    placeholder="Purpose"
-                  />
+                  <div className="mb-5 flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Wallet #{index + 1}</h3>
 
-                  {wallets.length > 1 && (
-                    <div className="md:col-span-2">
+                    {wallets.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeWallet(index)}
-                        className="rounded-xl border border-red-900 px-4 py-2 text-sm text-red-300 hover:bg-red-950"
+                        className="text-sm font-medium text-red-400 hover:text-red-300"
                       >
-                        Remove Wallet
+                        Remove
                       </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-zinc-300">
+                        Wallet Label
+                      </label>
+                      <input
+                        type="text"
+                        value={wallet.label}
+                        onChange={(e) =>
+                          updateWallet(index, "label", e.target.value)
+                        }
+                        placeholder="Treasury Wallet"
+                        className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                      />
                     </div>
-                  )}
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-zinc-300">
+                        Category
+                      </label>
+                      <select
+                        value={wallet.category}
+                        onChange={(e) =>
+                          updateWallet(index, "category", e.target.value)
+                        }
+                        className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                      >
+                        <option value="treasury">treasury</option>
+                        <option value="liquidity">liquidity</option>
+                        <option value="development">development</option>
+                        <option value="community">community</option>
+                        <option value="marketing">marketing</option>
+                        <option value="reserve">reserve</option>
+                        <option value="team">team</option>
+                      </select>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="mb-2 block text-sm font-medium text-zinc-300">
+                        Wallet Address
+                      </label>
+                      <input
+                        type="text"
+                        value={wallet.address}
+                        onChange={(e) =>
+                          updateWallet(index, "address", e.target.value)
+                        }
+                        placeholder="Enter wallet address"
+                        className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-zinc-300">
+                        Intended Allocation
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={wallet.allocation}
+                        onChange={(e) =>
+                          updateWallet(index, "allocation", e.target.value)
+                        }
+                        placeholder="200000000"
+                        className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-zinc-300">
+                        Purpose
+                      </label>
+                      <input
+                        type="text"
+                        value={wallet.purpose}
+                        onChange={(e) =>
+                          updateWallet(index, "purpose", e.target.value)
+                        }
+                        placeholder="Describe what this wallet is used for"
+                        className="w-full rounded-xl border border-zinc-700 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-cyan-500"
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {successMessage && (
-            <div className="rounded-2xl border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-emerald-300">
-              {successMessage}
+          {error && (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-300">
+              {error}
             </div>
           )}
 
-          {errorMessage && (
-            <div className="rounded-2xl border border-red-800 bg-red-950/40 px-4 py-3 text-red-300">
-              {errorMessage}
+          {success && (
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">
+              <div>{success}</div>
+              {createdSlug && (
+                <div className="mt-3 flex flex-wrap gap-4">
+                  <Link
+                    href={`/token/${createdSlug}`}
+                    className="font-medium text-cyan-300 hover:text-cyan-200"
+                  >
+                    View public dashboard
+                  </Link>
+                  <Link
+                    href="/transparency"
+                    className="font-medium text-cyan-300 hover:text-cyan-200"
+                  >
+                    Open transparency directory
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-4">
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="rounded-2xl bg-red-700 px-6 py-3 font-medium text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={loading}
+              className="rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-black transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "Creating..." : "Create Project"}
+              {loading ? "Creating Project..." : "Create Project"}
             </button>
 
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="rounded-2xl border border-neutral-700 px-6 py-3 text-neutral-200 hover:border-neutral-500"
+            <Link
+              href="/dashboard"
+              className="rounded-xl border border-zinc-700 px-6 py-3 text-sm font-medium text-white transition hover:bg-zinc-800"
             >
-              Cancel
-            </button>
+              Back to Dashboard
+            </Link>
           </div>
         </form>
-      </div>
+      </section>
     </main>
   );
 }

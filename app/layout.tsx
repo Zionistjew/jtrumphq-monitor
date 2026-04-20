@@ -1,19 +1,19 @@
-import './globals.css'
-import type { Metadata } from 'next'
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'JTRUMPHQ Monitor',
-  description: 'Phantom-powered wallet monitoring and transparency dashboard for JTRUMP',
-}
+  title: "WEB3MB Transparency Center",
+  description: "Real-time crypto transparency and investor protection platform.",
+};
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en">
-      <body>
-        <div className="mx-auto min-h-screen max-w-7xl px-4 py-6">
-          {children}
-        </div>
-      </body>
+      <body className="bg-black text-white min-h-screen">{children}</body>
     </html>
-  )
+  );
 }

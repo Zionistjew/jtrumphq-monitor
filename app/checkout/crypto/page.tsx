@@ -1,351 +1,137 @@
-"use client";
+import Link from "next/link";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { QRCodeSVG } from "qrcode.react";
+const plans = {
+  starter: {
+    name: "Starter",
+    price: "0.1 SOL",
+    description:
+      "Ideal for early-stage projects launching a basic transparency page.",
+    features: [
+      "1 project",
+      "Public transparency profile",
+      "Wallet disclosure page",
+    ],
+  },
+  pro: {
+    name: "Pro",
+    price: "0.25 SOL",
+    description:
+      "Built for active teams that need stronger investor-facing transparency.",
+    features: [
+      "Up to 5 projects",
+      "Expanded dashboard access",
+      "More disclosure coverage",
+    ],
+  },
+  enterprise: {
+    name: "Enterprise",
+    price: "1 SOL",
+    description:
+      "For organizations that need full transparency infrastructure and custom support.",
+    features: [
+      "Unlimited projects",
+      "Custom onboarding",
+      "Priority setup support",
+    ],
+  },
+} as const;
 
-type PaymentResponse = {
-  paymentId: string;
-  reference: string;
-  plan: string;
-  token: "SOL";
-  amount: number;
-  amountUsd: number;
-  destinationWallet: string;
-  status: string;
-  txSignature?: string | null;
-  confirmedAt?: string | null;
-  payerWallet?: string | null;
-};
+type PlanKey = keyof typeof plans;
 
-function CryptoCheckoutContent() {
-  const searchParams = useSearchParams();
-  const plan = searchParams.get("plan") || "starter";
-  const paymentIdFromUrl = searchParams.get("paymentId");
+export default function CryptoCheckoutPage({
+  searchParams,
+}: {
+  searchParams?: { plan?: string };
+}) {
+  const selectedPlan = searchParams?.plan?.toLowerCase() as PlanKey | undefined;
+  const plan = selectedPlan && plans[selectedPlan] ? plans[selectedPlan] : null;
 
-  const [payment, setPayment] = useState<PaymentResponse | null>(null);
-  const [error, setError] = useState("");
-  const [creating, setCreating] = useState(true);
-
-  const [txSignature, setTxSignature] = useState("");
-  const [verifyLoading, setVerifyLoading] = useState(false);
-  const [verifyError, setVerifyError] = useState("");
-  const [verifySuccess, setVerifySuccess] = useState("");
-
-  useEffect(() => {
-    let active = true;
-
-    async function initPayment() {
-      try {
-        setCreating(true);
-        setError("");
-
-        if (paymentIdFromUrl) {
-          const existingRes = await fetch(
-            `/api/payments/status/${paymentIdFromUrl}`,
-            { cache: "no-store" }
-          );
-
-          const existingJson = await existingRes.json();
-
-          if (existingRes.ok && existingJson.ok && existingJson.payment) {
-            if (active) {
-              setPayment(existingJson.payment);
-            }
-            return;
-          }
-        }
-
-        const res = await fetch("/api/payments/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan }),
-        });
-
-        const json = await res.json();
-
-        if (!res.ok || !json.ok) {
-          throw new Error(json.error || "Failed to create payment.");
-        }
-
-        if (active) {
-          setPayment(json.payment);
-
-          const url = new URL(window.location.href);
-          url.searchParams.set("paymentId", json.payment.paymentId);
-          window.history.replaceState({}, "", url.toString());
-        }
-      } catch (e: any) {
-        if (active) {
-          setError(e?.message || "Failed to create payment.");
-        }
-      } finally {
-        if (active) {
-          setCreating(false);
-        }
-      }
-    }
-
-    initPayment();
-
-    return () => {
-      active = false;
-    };
-  }, [plan, paymentIdFromUrl]);
-
-  async function handleVerify(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!payment?.paymentId || !txSignature.trim()) {
-      setVerifyError("Transaction signature is required.");
-      return;
-    }
-
-    try {
-      setVerifyLoading(true);
-      setVerifyError("");
-      setVerifySuccess("");
-
-      const res = await fetch("/api/payments/verify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          paymentId: payment.paymentId,
-          txSignature: txSignature.trim(),
-        }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.ok) {
-        throw new Error(json.error || "Verification failed.");
-      }
-
-      setVerifySuccess("Payment verified successfully.");
-
-      setPayment((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "confirmed",
-              txSignature: json.payment?.txSignature ?? txSignature.trim(),
-              confirmedAt: json.payment?.confirmedAt ?? null,
-              payerWallet: json.payment?.payerWallet ?? null,
-            }
-          : prev
-      );
-    } catch (e: any) {
-      setVerifyError(e?.message || "Verification failed.");
-    } finally {
-      setVerifyLoading(false);
-    }
-  }
-
-  async function copyToClipboard(value: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {}
-  }
-
-  return (
-    <main className="min-h-screen bg-black px-6 py-10 text-white">
-      <div className="mx-auto max-w-4xl">
-        <div className="rounded-[32px] border border-neutral-800 bg-gradient-to-br from-neutral-950 via-black to-red-950/30 p-6 shadow-2xl">
-          <div className="mb-6">
-            <p className="inline-block rounded-full border border-red-700 px-4 py-1 text-xs uppercase tracking-[0.3em] text-red-300">
-              Crypto Checkout
-            </p>
-            <h1 className="mt-4 text-4xl font-bold">Complete Your Payment</h1>
-            <p className="mt-2 text-neutral-400">
-              Pay with SOL on Solana and verify the transaction below.
+  if (!plan) {
+    return (
+      <main className="min-h-screen bg-black text-white">
+        <section className="mx-auto max-w-6xl px-6 py-16">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold sm:text-5xl">Choose Your Plan</h1>
+            <p className="mt-4 text-lg text-zinc-400">
+              Select a transparency plan to continue to checkout.
             </p>
           </div>
 
-          {creating && (
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 px-4 py-4 text-neutral-300">
-              Preparing payment...
-            </div>
-          )}
-
-          {error && (
-            <div className="rounded-2xl border border-red-800 bg-red-950/40 px-4 py-4 text-red-300">
-              {error}
-            </div>
-          )}
-
-          {payment && (
-            <div className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
-                  <p className="text-sm text-neutral-400">Plan</p>
-                  <p className="mt-2 text-2xl font-semibold capitalize">
-                    {payment.plan}
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
-                  <p className="text-sm text-neutral-400">Token</p>
-                  <p className="mt-2 text-2xl font-semibold">{payment.token}</p>
-                </div>
-
-                <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
-                  <p className="text-sm text-neutral-400">Amount</p>
-                  <p className="mt-2 text-2xl font-semibold">{payment.amount}</p>
-                </div>
-
-                <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
-                  <p className="text-sm text-neutral-400">USD Value</p>
-                  <p className="mt-2 text-2xl font-semibold">
-                    ${payment.amountUsd}
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
-                <p className="mb-3 text-sm text-neutral-400">
-                  Send SOL to this wallet
+          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+            {Object.entries(plans).map(([key, value]) => (
+              <div
+                key={key}
+                className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-8 shadow-lg"
+              >
+                <h2 className="text-2xl font-semibold">{value.name}</h2>
+                <p className="mt-3 text-3xl font-bold">{value.price}</p>
+                <p className="mt-4 text-sm leading-6 text-zinc-400">
+                  {value.description}
                 </p>
 
-                <div className="flex flex-col items-center gap-6 md:flex-row">
-                  <div className="rounded-xl bg-white p-3">
-                    <QRCodeSVG
-                      value={`solana:${payment.destinationWallet}?amount=${payment.amount}`}
-                      size={160}
-                    />
-                  </div>
-
-                  <div className="w-full space-y-4">
-                    <div>
-                      <p className="text-xs text-neutral-500">Wallet</p>
-                      <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-center">
-                        <code className="break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
-                          {payment.destinationWallet}
-                        </code>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(payment.destinationWallet)}
-                          className="rounded-xl border border-neutral-700 px-3 py-2 text-sm hover:border-neutral-500"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-neutral-500">Amount</p>
-                      <p className="mt-2 text-lg font-semibold">
-                        {payment.amount} SOL
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
-                <p className="text-sm text-neutral-400">Reference</p>
-                <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
-                  <code className="block break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
-                    {payment.reference}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(payment.reference)}
-                    className="rounded-xl border border-neutral-700 px-3 py-2 text-sm hover:border-neutral-500"
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-neutral-800 bg-black/70 p-5">
-                <p className="text-sm text-neutral-400">Payment ID</p>
-                <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
-                  <code className="block break-all rounded-xl bg-neutral-950 px-4 py-3 text-sm text-neutral-200">
-                    {payment.paymentId}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(payment.paymentId)}
-                    className="rounded-xl border border-neutral-700 px-3 py-2 text-sm hover:border-neutral-500"
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-amber-800 bg-amber-950/20 p-5 text-amber-200">
-                Send the exact SOL amount shown above to the wallet listed.
-                Do not send USDC or Ethereum assets for this checkout. Do not
-                refresh the page after sending unless the URL still contains the
-                same paymentId.
-              </div>
-
-              {payment.status !== "confirmed" && (
-                <form
-                  onSubmit={handleVerify}
-                  className="rounded-2xl border border-neutral-800 bg-black/70 p-5"
+                <Link
+                  href={`/checkout/crypto?plan=${key}`}
+                  className="mt-8 inline-block rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-zinc-200"
                 >
-                  <label className="mb-2 block text-sm text-neutral-300">
-                    Paste transaction signature
-                  </label>
-
-                  <input
-                    value={txSignature}
-                    onChange={(e) => setTxSignature(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 outline-none focus:border-red-700"
-                    placeholder="Transaction signature"
-                  />
-
-                  {verifyError && (
-                    <div className="mt-4 rounded-2xl border border-red-800 bg-red-950/40 px-4 py-3 text-red-300">
-                      {verifyError}
-                    </div>
-                  )}
-
-                  {verifySuccess && (
-                    <div className="mt-4 rounded-2xl border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-emerald-300">
-                      {verifySuccess}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={verifyLoading}
-                    className="mt-5 inline-flex rounded-2xl bg-red-700 px-6 py-3 font-medium text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {verifyLoading ? "Verifying..." : "Verify Payment"}
-                  </button>
-                </form>
-              )}
-
-              {payment.status === "confirmed" && (
-                <div className="rounded-2xl border border-emerald-800 bg-emerald-950/30 p-5 text-emerald-200">
-                  Payment confirmed on-chain.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </main>
-  );
-}
-
-export default function CryptoCheckoutPage() {
-  return (
-    <Suspense
-      fallback={
-        <main className="min-h-screen bg-black px-6 py-10 text-white">
-          <div className="mx-auto max-w-4xl rounded-[32px] border border-neutral-800 bg-gradient-to-br from-neutral-950 via-black to-red-950/30 p-6">
-            <h1 className="text-4xl font-bold">Crypto Checkout</h1>
-            <p className="mt-3 text-neutral-400">Loading checkout...</p>
+                  Choose {value.name}
+                </Link>
+              </div>
+            ))}
           </div>
-        </main>
-      }
-    >
-      <CryptoCheckoutContent />
-    </Suspense>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-black text-white">
+      <section className="mx-auto max-w-4xl px-6 py-16">
+        <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-8 shadow-lg">
+          <div className="inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-300">
+            Secure Solana Checkout
+          </div>
+
+          <h1 className="mt-6 text-4xl font-bold">
+            {plan.name} Plan Checkout
+          </h1>
+
+          <p className="mt-4 text-lg text-zinc-400">{plan.description}</p>
+
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-zinc-800 bg-black/30 p-6">
+              <div className="text-sm text-zinc-400">Selected Plan</div>
+              <div className="mt-2 text-2xl font-semibold">{plan.name}</div>
+            </div>
+
+            <div className="rounded-2xl border border-zinc-800 bg-black/30 p-6">
+              <div className="text-sm text-zinc-400">Price</div>
+              <div className="mt-2 text-2xl font-semibold">{plan.price}</div>
+            </div>
+          </div>
+
+          <div className="mt-8 rounded-2xl border border-zinc-800 bg-black/30 p-6">
+            <h2 className="text-xl font-semibold">What’s included</h2>
+            <ul className="mt-4 space-y-3 text-sm text-zinc-300">
+              {plan.features.map((feature) => (
+                <li key={feature}>• {feature}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-4">
+            <button className="rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-black hover:bg-cyan-400">
+              Pay with Phantom
+            </button>
+
+            <Link
+              href="/pricing"
+              className="rounded-xl border border-zinc-700 px-6 py-3 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Back to Pricing
+            </Link>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
