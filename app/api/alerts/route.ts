@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { notifyCriticalAlert } from "@/lib/alerts/notify";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type Severity = "critical" | "warning" | "info";
 
