@@ -1,251 +1,88 @@
 import Link from "next/link";
-import Image from "next/image";
-import { createClient } from "@/lib/supabase/server";
 
-type Project = {
-  id:number;
-  slug:string;
-  name:string;
-  symbol:string;
-  created_at?:string|null;
-};
-
-export default async function AppHome() {
-  const supabase = await createClient();
-
-  const { data } = await supabase
-    .from("projects")
-    .select("id,slug,name,symbol,created_at")
-    .order("id",{ascending:false});
-
-  const projects:Project[] = data || [];
-  const latest = projects[0];
-
+export default function AppHome() {
   return (
-<main className="min-h-screen bg-[#050816] text-white">
-<div className="mx-auto max-w-7xl px-8 py-10">
+    <main className="min-h-screen bg-[#030712] p-8 text-white">
+      <div className="mx-auto max-w-7xl">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl">
+          <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
+            WEB3MB / OWNER HUB
+          </div>
 
-<div className="flex items-start justify-between">
-<div>
-<div className="flex items-center gap-4">
-<Image
-src="/branding/web3mb-logo.png"
-alt="WEB3MB"
-width={210}
-height={62}
-/>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
+            WEB3MB Owner Dashboard
+          </h1>
 
-<div className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-cyan-300">
-Owner Dashboard
-</div>
-</div>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">
+            Manage crypto transparency projects, verify wallets, review alerts,
+            and monitor public trust signals.
+          </p>
 
-<h1 className="mt-8 text-6xl font-bold">
-Welcome back
-</h1>
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Link
+              href="/app/projects"
+              className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
+            >
+              <div className="text-lg font-semibold text-white">My Projects</div>
+              <p className="mt-2 text-sm text-zinc-400">
+                View and manage transparency projects.
+              </p>
+            </Link>
 
-<p className="mt-6 max-w-4xl text-lg text-zinc-300">
-Manage transparency projects, launch new dashboards,
-and monitor your WEB3MB portfolio from one central workspace.
-</p>
-</div>
+            <Link
+              href="/app/projects/new"
+              className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 transition hover:bg-cyan-500/15"
+            >
+              <div className="text-lg font-semibold text-cyan-200">
+                Create Project
+              </div>
+              <p className="mt-2 text-sm text-zinc-400">
+                Add a new token for verification.
+              </p>
+            </Link>
 
-<div className="flex gap-3">
-<Link
-href="/app/projects"
-className="rounded-2xl border border-white/10 bg-white/[0.04] px-7 py-4 font-semibold"
->
-My Projects
-</Link>
+            <Link
+              href="/app/verify-wallets"
+              className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
+            >
+              <div className="text-lg font-semibold text-white">
+                Wallet Verification
+              </div>
+              <p className="mt-2 text-sm text-zinc-400">
+                Check live wallet balances and disclosures.
+              </p>
+            </Link>
 
-<Link
-href="/app/projects/new"
-className="rounded-2xl bg-white px-7 py-4 font-semibold text-black"
->
-Create New Project
-</Link>
-</div>
-</div>
+            <Link
+              href="/app/alerts"
+              className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
+            >
+              <div className="text-lg font-semibold text-white">
+                Alert Center
+              </div>
+              <p className="mt-2 text-sm text-zinc-400">
+                Review critical transparency alerts.
+              </p>
+            </Link>
+          </div>
 
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              href="/transparency"
+              className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15"
+            >
+              Public Transparency Directory
+            </Link>
 
-<div className="mt-12 grid gap-5 xl:grid-cols-3">
-
-<div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-7">
-<div className="text-sm uppercase tracking-[0.24em] text-cyan-300">
-Total Projects
-</div>
-
-<div className="mt-6 text-5xl font-bold">
-{projects.length}
-</div>
-
-<Link
-href="/app/projects"
-className="mt-8 inline-flex rounded-2xl border border-white/10 px-6 py-4"
->
-Open Portfolio
-</Link>
-</div>
-
-
-<div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-7">
-<div className="text-sm uppercase tracking-[0.24em] text-cyan-300">
-Latest Project
-</div>
-
-<div className="mt-6 text-5xl font-bold">
-{latest?.name || "—"}
-</div>
-
-{latest && (
-<Link
-href={`/app/projects/${latest.id}`}
-className="mt-8 inline-flex rounded-2xl border border-white/10 px-6 py-4"
->
-Open Project Console
-</Link>
-)}
-</div>
-
-
-<div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-7">
-<div className="text-sm uppercase tracking-[0.24em] text-cyan-300">
-Public Dashboards
-</div>
-
-<div className="mt-6 text-5xl font-bold">
-{projects.length}
-</div>
-
-<Link
-href="/transparency"
-className="mt-8 inline-flex rounded-2xl border border-white/10 px-6 py-4"
->
-Review Dashboards
-</Link>
-</div>
-
-</div>
-
-
-
-<div className="mt-10 grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-
-<div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-
-<h2 className="text-4xl font-bold">
-Recent Projects
-</h2>
-
-<div className="mt-10 space-y-4">
-
-{projects.slice(0,5).map((project)=>(
-<div
-key={project.id}
-className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6"
->
-
-<div className="flex items-center justify-between">
-
-<div>
-<div className="text-sm uppercase tracking-[0.24em] text-cyan-300">
-{project.symbol}
-</div>
-
-<div className="mt-3 text-4xl font-bold">
-{project.name}
-</div>
-
-<div className="mt-3 text-zinc-400">
-/token/{project.slug}
-</div>
-</div>
-
-
-<div className="flex gap-3">
-
-<Link
-href={`/app/projects/${project.id}`}
-className="rounded-2xl border border-white/10 px-5 py-3 font-semibold"
->
-Open Project Console
-</Link>
-
-<Link
-href={`/token/${project.slug}`}
-className="rounded-2xl bg-white px-5 py-3 font-semibold text-black"
->
-Public View
-</Link>
-
-</div>
-
-</div>
-</div>
-))}
-
-</div>
-</div>
-
-
-
-<div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-
-<h2 className="text-4xl font-bold">
-Quick Actions
-</h2>
-
-<div className="mt-10 space-y-4">
-
-<Link
-href="/app/projects/new"
-className="block rounded-[1.5rem] border border-white/10 p-6"
->
-<div className="text-sm uppercase tracking-[0.24em] text-cyan-300">
-Create
-</div>
-
-<div className="mt-3 text-2xl font-semibold">
-Start a new transparency project
-</div>
-</Link>
-
-
-<Link
-href="/app/projects"
-className="block rounded-[1.5rem] border border-white/10 p-6"
->
-<div className="text-sm uppercase tracking-[0.24em] text-cyan-300">
-Manage
-</div>
-
-<div className="mt-3 text-2xl font-semibold">
-Review your owner-side projects
-</div>
-</Link>
-
-
-{latest && (
-<Link
-href={`/app/projects/${latest.id}`}
-className="block rounded-[1.5rem] border border-white/10 p-6"
->
-<div className="text-sm uppercase tracking-[0.24em] text-cyan-300">
-Continue
-</div>
-
-<div className="mt-3 text-2xl font-semibold">
-Open Project Console
-</div>
-</Link>
-)}
-
-</div>
-</div>
-
-</div>
-
-</div>
-</main>
+            <Link
+              href="/pricing"
+              className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/15"
+            >
+              View Pricing
+            </Link>
+          </div>
+        </div>
+      </div>
+    </main>
   );
 }
