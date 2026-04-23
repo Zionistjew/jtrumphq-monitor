@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import RouteShell from "@/components/layout/RouteShell";
 
 export const metadata: Metadata = {
   title: "WEB3MB Transparency Center",
-  description: "Real-time crypto transparency and investor protection platform.",
+  description:
+    "WEB3MB Transparency Center — public trust dashboards, wallet disclosure, and investor-facing crypto transparency.",
 };
 
 export default function RootLayout({
@@ -13,7 +15,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-black text-white min-h-screen">{children}</body>
+      <body className="bg-[#050816] text-white antialiased">
+        <RouteShell>{children}</RouteShell>
+      </body>
     </html>
   );
 }

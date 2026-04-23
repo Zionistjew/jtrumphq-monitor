@@ -1,74 +1,382 @@
-"use client";
+import Link from "next/link";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+type TrustFactor = {
+  key: string;
+  label: string;
+  impact: number;
+  status: "positive" | "negative" | "neutral";
+  detail: string;
+};
 
-export default function SignupPage() {
-  const supabase = createClient();
-  const router = useRouter();
+type TrustProject = {
+  projectId: number;
+  projectSlug: string;
+  projectName: string;
+  projectSymbol: string;
+  score: number;
+  riskLevel: "Low" | "Moderate" | "High";
+  verificationStatus: "Verified" | "Partial" | "Needs Review";
+  factors: TrustFactor[];
+  stats: {
+    trackedWallets: number;
+    healthyWalletReads: number;
+    allocationMismatches: number;
+    lowSolWarnings: number;
+    invalidWallets: number;
+    invalidMint: boolean;
+    disclosedWalletCoveragePct: number;
+  };
+};
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-
-  async function handleSignup(e: React.FormEvent) {
-    e.preventDefault();
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    if (error) {
-      setError(error.message);
-      return;
-    }
-
-    router.push("/login");
-    router.refresh();
+function scoreRingClasses(score: number) {
+  if (score >= 80) {
+    return {
+      ring: "border-emerald-500/30 bg-emerald-500/10",
+      text: "text-emerald-300",
+      badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
+    };
   }
 
+  if (score >= 55) {
+    return {
+      ring: "border-amber-500/30 bg-amber-500/10",
+      text: "text-amber-300",
+      badge: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+    };
+  }
+
+  return {
+    ring: "border-red-500/30 bg-red-500/10",
+    text: "text-red-300",
+    badge: "border-red-500/30 bg-red-500/10 text-red-200",
+  };
+}
+
+function riskBadgeClasses(risk: TrustProject["riskLevel"]) {
+  if (risk === "Low") {
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+  }
+
+  if (risk === "Moderate") {
+    return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+  }
+
+  return "border-red-500/30 bg-red-500/10 text-red-200";
+}
+
+function verificationBadgeClasses(status: TrustProject["verificationStatus"]) {
+  if (status === "Verified") {
+    return "border-cyan-500/30 bg-cyan-500/10 text-cyan-200";
+  }
+
+  if (status === "Partial") {
+    return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+  }
+
+  return "border-zinc-500/30 bg-zinc-500/10 text-zinc-200";
+}
+
+function impactText(impact: number) {
+  return impact > 0 ? `+${impact}` : `${impact}`;
+}
+
+async function getTrustScore(slug: string): Promise<TrustProject | null> {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+
+  try {
+    const res = await fetch(
+      `${baseUrl}/api/trust-score?slug=${encodeURIComponent(slug)}`,
+      { cache: "no-store" }
+    );
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json();
+    return data?.project ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function TokenTrustPage({
+  params,
+}: {
+  params: { slug: string };
+}) {
+  const project = await getTrustScore(params.slug);
+
+  if (!project) {
+    return (
+      <div className="min-h-screen bg-[#050816] text-white">
+        <div className="mx-auto max-w-6xl px-4 py-10 md:px-6 lg:px-8">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center shadow-2xl">
+            <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
+              WEB3MB / TRUST SCORE
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold text-white">
+              Project not found
+            </h1>
+            <p className="mt-3 text-sm text-zinc-400">
+              We could not load trust score data for this token.
+            </p>
+            <div className="mt-6">
+              <Link
+                href="/transparency"
+                className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15"
+              >
+                Back to Public Directory
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const scoreStyles = scoreRingClasses(project.score);
+  const positiveFactors = project.factors.filter((f) => f.impact > 0);
+  const negativeFactors = project.factors.filter((f) => f.impact < 0);
+
   return (
-    <main className="mx-auto max-w-md p-6">
-      <h1 className="mb-4 text-2xl font-bold">
-        Create Account
-      </h1>
+    <div className="min-h-screen bg-[#050816] text-white">
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 lg:px-8">
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] p-6 shadow-2xl">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+              <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
+                WEB3MB / TRUST SCORE
+              </div>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+                {project.projectName}
+              </h1>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300">
+                  {project.projectSymbol}
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400">
+                  {project.projectSlug}
+                </span>
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs ${riskBadgeClasses(
+                    project.riskLevel
+                  )}`}
+                >
+                  Risk: {project.riskLevel}
+                </span>
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs ${verificationBadgeClasses(
+                    project.verificationStatus
+                  )}`}
+                >
+                  {project.verificationStatus}
+                </span>
+              </div>
+              <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-300">
+                Investor-facing trust assessment based on wallet disclosures,
+                live balance verification, operational funding health, and
+                allocation integrity.
+              </p>
+            </div>
 
-      <form onSubmit={handleSignup} className="space-y-4">
+            <div
+              className={`flex h-40 w-40 shrink-0 items-center justify-center rounded-full border-8 ${scoreStyles.ring}`}
+            >
+              <div className="text-center">
+                <div className={`text-5xl font-semibold ${scoreStyles.text}`}>
+                  {project.score}
+                </div>
+                <div className="mt-1 text-xs uppercase tracking-[0.2em] text-zinc-400">
+                  Trust Score
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <input
-          className="w-full rounded border p-3 text-black"
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e)=>setEmail(e.target.value)}
-          required
-        />
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">
+                Tracked Wallets
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-white">
+                {project.stats.trackedWallets}
+              </div>
+            </div>
 
-        <input
-          className="w-full rounded border p-3 text-black"
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e)=>setPassword(e.target.value)}
-          required
-        />
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">
+                Healthy Reads
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-white">
+                {project.stats.healthyWalletReads}
+              </div>
+            </div>
 
-        {error && (
-          <p className="text-red-600">
-            {error}
-          </p>
-        )}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">
+                Allocation Mismatches
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-white">
+                {project.stats.allocationMismatches}
+              </div>
+            </div>
 
-        <button
-          className="w-full rounded bg-black p-3 text-white"
-          type="submit"
-        >
-          Sign Up
-        </button>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">
+                Low SOL Warnings
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-white">
+                {project.stats.lowSolWarnings}
+              </div>
+            </div>
 
-      </form>
-    </main>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">
+                Invalid Wallets
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-white">
+                {project.stats.invalidWallets}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-zinc-400">
+                Coverage
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-white">
+                {project.stats.disclosedWalletCoveragePct}%
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-6 xl:grid-cols-2">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">
+                  Positive Factors
+                </h2>
+                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-200">
+                  {positiveFactors.length}
+                </span>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {positiveFactors.length > 0 ? (
+                  positiveFactors.map((factor) => (
+                    <div
+                      key={factor.key}
+                      className="rounded-xl border border-white/10 bg-black/20 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-white">
+                            {factor.label}
+                          </div>
+                          <div className="mt-1 text-sm leading-6 text-zinc-300">
+                            {factor.detail}
+                          </div>
+                        </div>
+                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-200">
+                          {impactText(factor.impact)}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-zinc-400">
+                    No positive factors recorded.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">
+                  Risk Factors
+                </h2>
+                <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs text-red-200">
+                  {negativeFactors.length}
+                </span>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {negativeFactors.length > 0 ? (
+                  negativeFactors.map((factor) => (
+                    <div
+                      key={factor.key}
+                      className="rounded-xl border border-white/10 bg-black/20 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-white">
+                            {factor.label}
+                          </div>
+                          <div className="mt-1 text-sm leading-6 text-zinc-300">
+                            {factor.detail}
+                          </div>
+                        </div>
+                        <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs text-red-200">
+                          {impactText(factor.impact)}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-zinc-400">
+                    No risk factors recorded.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 rounded-2xl border border-white/10 bg-black/20 p-5">
+            <h2 className="text-lg font-semibold text-white">
+              Verification Summary
+            </h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-xs uppercase tracking-[0.16em] text-zinc-500">
+                  Mint Status
+                </div>
+                <div className="mt-2 text-sm text-zinc-200">
+                  {project.stats.invalidMint
+                    ? "Invalid or missing mint configuration"
+                    : "Valid mint configuration detected"}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-xs uppercase tracking-[0.16em] text-zinc-500">
+                  Disclosure Coverage
+                </div>
+                <div className="mt-2 text-sm text-zinc-200">
+                  {project.stats.disclosedWalletCoveragePct}% of disclosed wallets
+                  produced healthy live reads.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              href="/transparency"
+              className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15"
+            >
+              Back to Public Directory
+            </Link>
+            <Link
+              href={`/token/${project.projectSlug}`}
+              className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/15"
+            >
+              Open Token Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

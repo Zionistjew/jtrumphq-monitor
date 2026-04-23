@@ -1,657 +1,872 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-type StaticWallet = {
-  id: string;
-  label: string;
-  category: string;
-  address: string;
-  purpose: string;
-  allocation: number | null;
-  created_at?: string;
-};
-
-type ProjectInfo = {
-  id: number;
+type Project = {
   slug: string;
   name: string;
   symbol: string;
   mint: string;
-  description: string;
-  theme_primary: string;
-  theme_accent: string;
+  description?: string | null;
 };
 
-type LiveWallet = {
+type Wallet = {
   label: string;
   category: string;
   address: string;
   purpose: string;
-  allocation?: number | null;
+  allocation?: number;
   solBalance?: number;
   tokenBalance?: number;
-  tokenAccounts?: Array<{
-    mint?: string;
-    amount?: number;
-  }>;
+  verified?: boolean;
+  verificationStatus?: string;
 };
 
-type AlertsResponse = {
-  ok: boolean;
+type AlertItem = {
+  id?: string | number;
+  title?: string;
+  message?: string;
+  severity?: string;
+  createdAt?: string;
+  txSignature?: string;
+};
+
+type WalletApiResponse = {
+  ok?: boolean;
+  slug?: string;
+  name?: string;
+  symbol?: string;
+  mint?: string;
   count?: number;
-  alerts?: Array<{
-    signature: string;
-    wallet: string;
-    category: string;
-    amount: number;
-    severity: "info" | "warning" | "critical";
-    message: string;
-    createdAt: string;
-  }>;
-  error?: string;
+  wallets?: Wallet[];
+  updatedAt?: string;
 };
 
-type ClaimsResponse = {
-  ok: boolean;
+type AlertsApiResponse = {
+  ok?: boolean;
+  slug?: string;
+  name?: string;
+  symbol?: string;
+  mint?: string;
   count?: number;
-  claims?: Array<{
-    wallet_address: string;
-    wallet_label: string;
-    status: string;
-    verified_at?: string;
-  }>;
-  error?: string;
+  alerts?: AlertItem[];
+  updatedAt?: string;
 };
 
-type WalletsResponse = {
-  ok: boolean;
-  slug: string;
-  name: string;
-  symbol: string;
-  mint: string;
-  count: number;
-  wallets: LiveWallet[];
-  updatedAt: string;
-  error?: string;
+type Props = {
+  project: Project;
 };
 
-function formatNumber(value: number) {
+function shortAddress(value: string, start = 5, end = 5) {
+  if (!value) return "";
+  if (value.length <= start + end + 3) return value;
+  return `${value.slice(0, start)}...${value.slice(-end)}`;
+}
+
+function formatNumber(value: number, maximumFractionDigits = 2) {
   return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: value >= 1000 ? 0 : 2,
+    maximumFractionDigits,
   }).format(value);
 }
 
-function formatCompact(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 2,
-  }).format(value);
+function formatPercent(value: number) {
+  return `${value.toFixed(1)}%`;
 }
 
 function formatDate(value?: string) {
-  if (!value) return "—";
+  if (!value) return "No timestamp";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString();
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }
 
-function scoreSeverityLabel(score: number) {
-  if (score >= 80) return "Low Risk";
-  if (score >= 60) return "Moderate Risk";
-  if (score >= 40) return "Elevated Risk";
-  return "Critical";
+function severityClass(severity?: string) {
+  const s = (severity || "").toLowerCase();
+  if (s.includes("critical")) {
+    return "border-red-400/20 bg-red-500/10 text-red-300";
+  }
+  if (s.includes("warn")) {
+    return "border-yellow-400/20 bg-yellow-500/10 text-yellow-300";
+  }
+  return "border-cyan-400/20 bg-cyan-400/10 text-cyan-300";
 }
 
-export default function TokenDashboardClient({
-  slug,
-  project,
-  initialWallets,
-}: {
-  slug: string;
-  project: ProjectInfo;
-  initialWallets: StaticWallet[];
+function scoreColor(score: number) {
+  if (score >= 80) return "bg-emerald-400";
+  if (score >= 60) return "bg-cyan-400";
+  if (score >= 40) return "bg-yellow-400";
+  return "bg-red-400";
+}
+
+function calculateInvestorScore(args: {
+  walletCount: number;
+  verifiedCount: number;
+  concentrationPct: number;
+  alertCount: number;
+  criticalCount: number;
 }) {
-  const [liveWallets, setLiveWallets] = useState<LiveWallet[]>([]);
-  const [alerts, setAlerts] = useState<AlertsResponse["alerts"]>([]);
-  const [claimsCount, setClaimsCount] = useState(0);
-  const [claimsUpdatedAt, setClaimsUpdatedAt] = useState<string | null>(null);
+  const { walletCount, verifiedCount, concentrationPct, alertCount, criticalCount } = args;
 
-  const [walletsLoading, setWalletsLoading] = useState(true);
-  const [alertsLoading, setAlertsLoading] = useState(true);
-  const [claimsLoading, setClaimsLoading] = useState(true);
+  let score = 100;
 
-  const [walletsError, setWalletsError] = useState("");
-  const [alertsError, setAlertsError] = useState("");
-  const [claimsError, setClaimsError] = useState("");
+  if (walletCount === 0) score -= 45;
+  score -= Math.min(35, concentrationPct * 0.35);
+  score -= alertCount * 4;
+  score -= criticalCount * 12;
+
+  if (walletCount > 0) {
+    const verificationCoverage = (verifiedCount / walletCount) * 100;
+    score += Math.min(10, verificationCoverage * 0.1);
+  }
+
+  return Math.max(8, Math.min(96, Math.round(score)));
+}
+
+function MetricCard({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string;
+  value: string | number;
+  compact?: boolean;
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-black/20 p-5">
+      <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+        {label}
+      </div>
+      <div
+        className={`mt-3 min-w-0 break-words font-bold leading-tight text-white ${
+          compact ? "text-xl sm:text-2xl" : "text-3xl"
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+export default function TokenDashboardClient({ project }: Props) {
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [walletsUpdatedAt, setWalletsUpdatedAt] = useState<string>("");
+  const [alertsUpdatedAt, setAlertsUpdatedAt] = useState<string>("");
+  const [loadingWallets, setLoadingWallets] = useState(true);
+  const [loadingAlerts, setLoadingAlerts] = useState(true);
+  const [walletError, setWalletError] = useState("");
+  const [alertError, setAlertError] = useState("");
 
   useEffect(() => {
-    let active = true;
+    let cancelled = false;
 
     async function loadWallets() {
       try {
-        setWalletsLoading(true);
-        setWalletsError("");
+        setLoadingWallets(true);
+        setWalletError("");
 
-        const res = await fetch(`/api/token/${slug}/wallets`, {
+        const response = await fetch(`/api/token/${project.slug}/wallets`, {
           cache: "no-store",
         });
-        const data: WalletsResponse = await res.json();
+        const data: WalletApiResponse = await response.json();
 
-        if (!active) return;
-
-        if (!res.ok || !data.ok) {
-          setWalletsError(data.error || "Failed to load live wallets");
-          setWalletsLoading(false);
-          return;
+        if (!response.ok || data.ok === false) {
+          throw new Error(
+            typeof data === "object" && data && "detail" in data
+              ? String((data as Record<string, unknown>).detail || "Failed to load wallets")
+              : "Failed to load wallets"
+          );
         }
 
-        setLiveWallets(data.wallets || []);
-        setWalletsLoading(false);
+        if (!cancelled) {
+          setWallets(data.wallets || []);
+          setWalletsUpdatedAt(data.updatedAt || "");
+        }
       } catch (error) {
-        if (!active) return;
-        setWalletsError(error instanceof Error ? error.message : "Failed to load live wallets");
-        setWalletsLoading(false);
+        if (!cancelled) {
+          setWalletError(error instanceof Error ? error.message : "Failed to load wallets");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingWallets(false);
+        }
       }
     }
 
     async function loadAlerts() {
       try {
-        setAlertsLoading(true);
-        setAlertsError("");
+        setLoadingAlerts(true);
+        setAlertError("");
 
-        const res = await fetch(`/api/token/${slug}/alerts`, {
+        const response = await fetch(`/api/token/${project.slug}/alerts`, {
           cache: "no-store",
         });
-        const data: AlertsResponse = await res.json();
+        const data: AlertsApiResponse = await response.json();
 
-        if (!active) return;
-
-        if (!res.ok || !data.ok) {
-          setAlertsError(data.error || "Failed to load alerts");
-          setAlertsLoading(false);
-          return;
+        if (!response.ok || data.ok === false) {
+          throw new Error(
+            typeof data === "object" && data && "detail" in data
+              ? String((data as Record<string, unknown>).detail || "Failed to load alerts")
+              : "Failed to load alerts"
+          );
         }
 
-        setAlerts(data.alerts || []);
-        setAlertsLoading(false);
-      } catch (error) {
-        if (!active) return;
-        setAlertsError(error instanceof Error ? error.message : "Failed to load alerts");
-        setAlertsLoading(false);
-      }
-    }
-
-    async function loadClaims() {
-      try {
-        setClaimsLoading(true);
-        setClaimsError("");
-
-        const res = await fetch(`/api/token/${slug}/claims`, {
-          cache: "no-store",
-        });
-        const data: ClaimsResponse = await res.json();
-
-        if (!active) return;
-
-        if (!res.ok || !data.ok) {
-          setClaimsError(data.error || "Failed to load claims");
-          setClaimsLoading(false);
-          return;
+        if (!cancelled) {
+          setAlerts(data.alerts || []);
+          setAlertsUpdatedAt(data.updatedAt || "");
         }
-
-        setClaimsCount(data.count || 0);
-        setClaimsUpdatedAt(data.claims?.[0]?.verified_at || null);
-        setClaimsLoading(false);
       } catch (error) {
-        if (!active) return;
-        setClaimsError(error instanceof Error ? error.message : "Failed to load claims");
-        setClaimsLoading(false);
+        if (!cancelled) {
+          setAlertError(error instanceof Error ? error.message : "Failed to load alerts");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingAlerts(false);
+        }
       }
     }
 
     loadWallets();
     loadAlerts();
-    loadClaims();
 
     return () => {
-      active = false;
+      cancelled = true;
     };
-  }, [slug]);
-
-  const mergedWallets = useMemo(() => {
-    if (liveWallets.length > 0) return liveWallets;
-
-    return initialWallets.map((wallet) => ({
-      label: wallet.label,
-      category: wallet.category,
-      address: wallet.address,
-      purpose: wallet.purpose,
-      allocation: wallet.allocation,
-      solBalance: 0,
-      tokenBalance: 0,
-      tokenAccounts: [],
-    }));
-  }, [initialWallets, liveWallets]);
+  }, [project.slug]);
 
   const metrics = useMemo(() => {
-    const disclosedWallets = mergedWallets.length;
-    const walletsHolding = mergedWallets.filter((w) => (w.tokenBalance || 0) > 0).length;
-    const trackedToken = mergedWallets.reduce((sum, w) => sum + (w.tokenBalance || 0), 0);
-    const trackedSol = mergedWallets.reduce((sum, w) => sum + (w.solBalance || 0), 0);
+    const walletCount = wallets.length;
+    const trackedToken = wallets.reduce((sum, wallet) => sum + (wallet.tokenBalance || 0), 0);
+    const trackedSol = wallets.reduce((sum, wallet) => sum + (wallet.solBalance || 0), 0);
+    const declaredAllocation = wallets.reduce((sum, wallet) => sum + (wallet.allocation || 0), 0);
 
-    const balances = mergedWallets.map((w) => w.tokenBalance || 0).sort((a, b) => b - a);
-    const topHolderPct = trackedToken > 0 ? ((balances[0] || 0) / trackedToken) * 100 : 0;
-    const top3Pct = trackedToken > 0
-      ? (balances.slice(0, 3).reduce((a, b) => a + b, 0) / trackedToken) * 100
-      : 0;
+    const sortedByBalance = [...wallets].sort(
+      (a, b) => (b.tokenBalance || 0) - (a.tokenBalance || 0)
+    );
 
-    const marketingPct = trackedToken > 0
-      ? (mergedWallets
-          .filter((w) => (w.category || "").toLowerCase().includes("marketing"))
-          .reduce((sum, w) => sum + (w.tokenBalance || 0), 0) / trackedToken) * 100
-      : 0;
+    const topWalletBalance = sortedByBalance[0]?.tokenBalance || 0;
+    const topWalletLabel = sortedByBalance[0]?.label || "Top Wallet";
+    const topWalletPct = trackedToken > 0 ? (topWalletBalance / trackedToken) * 100 : 0;
 
-    const devPct = trackedToken > 0
-      ? (mergedWallets
-          .filter((w) => (w.category || "").toLowerCase().includes("dev"))
-          .reduce((sum, w) => sum + (w.tokenBalance || 0), 0) / trackedToken) * 100
-      : 0;
+    const top3Balance = sortedByBalance
+      .slice(0, 3)
+      .reduce((sum, wallet) => sum + (wallet.tokenBalance || 0), 0);
+    const top3Pct = trackedToken > 0 ? (top3Balance / trackedToken) * 100 : 0;
 
-    const treasuryPct = trackedToken > 0
-      ? (mergedWallets
-          .filter((w) => (w.category || "").toLowerCase().includes("treasury"))
-          .reduce((sum, w) => sum + (w.tokenBalance || 0), 0) / trackedToken) * 100
-      : 0;
+    const verifiedCount = wallets.filter(
+      (wallet) =>
+        wallet.verified === true ||
+        (wallet.verificationStatus || "").toLowerCase().includes("verified")
+    ).length;
 
-    const verificationCoverage = disclosedWallets > 0 ? (claimsCount / disclosedWallets) * 100 : 0;
+    const verificationCoverage = walletCount > 0 ? (verifiedCount / walletCount) * 100 : 0;
 
-    let investorScore = 100;
-    investorScore -= Math.min(topHolderPct, 60) * 0.6;
-    investorScore -= Math.min(top3Pct, 100) * 0.2;
-    investorScore += Math.min(verificationCoverage, 100) * 0.2;
-    investorScore = Math.max(0, Math.min(100, Math.round(investorScore)));
+    const marketingPct =
+      trackedToken > 0
+        ? (wallets
+            .filter((wallet) =>
+              (wallet.category || "").toLowerCase().includes("marketing")
+            )
+            .reduce((sum, wallet) => sum + (wallet.tokenBalance || 0), 0) /
+            trackedToken) *
+          100
+        : 0;
 
-    let sellPressure = 0;
-    sellPressure += marketingPct * 0.2;
-    sellPressure += devPct * 0.15;
-    sellPressure += alerts?.filter((a) => a.severity === "critical").length ? 20 : 0;
-    sellPressure += alerts?.filter((a) => a.severity === "warning").length ? 10 : 0;
-    sellPressure = Math.max(0, Math.min(10, Number((sellPressure / 10).toFixed(1))));
+    const devPct =
+      trackedToken > 0
+        ? (wallets
+            .filter((wallet) => {
+              const category = (wallet.category || "").toLowerCase();
+              return category.includes("dev") || category.includes("team");
+            })
+            .reduce((sum, wallet) => sum + (wallet.tokenBalance || 0), 0) /
+            trackedToken) *
+          100
+        : 0;
+
+    const treasuryPct =
+      trackedToken > 0
+        ? (wallets
+            .filter((wallet) =>
+              (wallet.category || "").toLowerCase().includes("treasury")
+            )
+            .reduce((sum, wallet) => sum + (wallet.tokenBalance || 0), 0) /
+            trackedToken) *
+          100
+        : 0;
+
+    const criticalCount = alerts.filter((alert) =>
+      (alert.severity || "").toLowerCase().includes("critical")
+    ).length;
+
+    const warningCount = alerts.filter((alert) =>
+      (alert.severity || "").toLowerCase().includes("warn")
+    ).length;
+
+    const investorScore = calculateInvestorScore({
+      walletCount,
+      verifiedCount,
+      concentrationPct: top3Pct,
+      alertCount: alerts.length,
+      criticalCount,
+    });
+
+    const riskNotes: string[] = [];
+
+    if (walletCount === 0) {
+      riskNotes.push("No disclosed wallets are currently attached to this public project.");
+    } else {
+      riskNotes.push(
+        `${topWalletLabel} holds ${formatPercent(topWalletPct)} of tracked ${project.symbol}.`
+      );
+
+      if (top3Pct > 0) {
+        riskNotes.push(
+          `Top 3 wallets control ${formatPercent(top3Pct)} of tracked ${project.symbol}.`
+        );
+      }
+
+      if (declaredAllocation > 0 && trackedToken > 0) {
+        const integrityRatio = (trackedToken / declaredAllocation) * 100;
+        riskNotes.push(
+          `Allocation integrity is ${formatPercent(
+            Math.min(999, integrityRatio)
+          )}, comparing live balances to declared allocation.`
+        );
+      }
+
+      riskNotes.push(
+        `${formatPercent(verificationCoverage)} of disclosed wallets are currently verified.`
+      );
+    }
+
+    if (criticalCount > 0) {
+      riskNotes.push(`${criticalCount} critical alert(s) require attention.`);
+    } else if (warningCount > 0) {
+      riskNotes.push(`${warningCount} warning alert(s) are active.`);
+    } else {
+      riskNotes.push("No major alert conditions are currently active.");
+    }
+
+    const categoryTotals = wallets.reduce<Record<string, number>>((acc, wallet) => {
+      const key = wallet.category || "uncategorized";
+      acc[key] = (acc[key] || 0) + (wallet.tokenBalance || 0);
+      return acc;
+    }, {});
+
+    const categoryRows = Object.entries(categoryTotals)
+      .map(([category, balance]) => ({
+        category,
+        balance,
+        pct: trackedToken > 0 ? (balance / trackedToken) * 100 : 0,
+      }))
+      .sort((a, b) => b.balance - a.balance);
 
     return {
-      disclosedWallets,
-      walletsHolding,
+      walletCount,
       trackedToken,
       trackedSol,
-      topHolderPct,
+      declaredAllocation,
+      topWalletPct,
       top3Pct,
+      verifiedCount,
+      verificationCoverage,
       marketingPct,
       devPct,
       treasuryPct,
-      verificationCoverage,
+      criticalCount,
+      warningCount,
       investorScore,
-      sellPressure,
+      riskNotes,
+      categoryRows,
     };
-  }, [alerts, claimsCount, mergedWallets]);
+  }, [alerts, project.symbol, wallets]);
 
-  const riskNotes = useMemo(() => {
-    const notes: string[] = [];
-
-    if (metrics.topHolderPct >= 50) {
-      notes.push(`Top holder concentration is ${metrics.topHolderPct.toFixed(1)}% of tracked ${project.symbol}.`);
-    }
-
-    if (metrics.top3Pct >= 80) {
-      notes.push(`Top 3 wallets control ${metrics.top3Pct.toFixed(1)}% of tracked ${project.symbol}.`);
-    }
-
-    if (metrics.marketingPct > 20) {
-      notes.push(`Marketing wallets control ${metrics.marketingPct.toFixed(1)}% of tracked ${project.symbol}.`);
-    }
-
-    if (metrics.verificationCoverage < 100) {
-      notes.push(`${Math.round(metrics.verificationCoverage)}% of disclosed wallets are currently verified.`);
-    }
-
-    if (!notes.length) {
-      notes.push("No major concentration or verification risks detected from the currently tracked wallets.");
-    }
-
-    return notes;
-  }, [metrics, project.symbol]);
+  const trustSealMarkup = `<img src="https://app.web3mb.com/token/${project.slug}" alt="${project.name} trust seal" />`;
 
   return (
-    <main className="min-h-screen bg-black px-4 py-10 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <section className="rounded-3xl border border-zinc-800 bg-gradient-to-b from-zinc-950 to-zinc-950/80 p-6 shadow-2xl">
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <span className="rounded-full border border-cyan-600/40 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-300">
-              Public Transparency Dashboard
-            </span>
-            <span className="rounded-full border border-emerald-600/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-              Verified by Project
-            </span>
-            <span className="ml-auto rounded-full border border-emerald-600/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-              Active
-            </span>
+    <main className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
+      <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-4xl">
+          <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-cyan-300">
+            Public Transparency Dashboard
           </div>
 
-          <h1 className="text-4xl font-bold">{project.name}</h1>
-          <div className="mt-2 text-sm uppercase tracking-widest text-zinc-400">
-            {project.symbol}
-          </div>
-          <p className="mt-4 max-w-3xl text-zinc-300">
-            {project.description || "Transparency dashboard for disclosed wallets, tracked holdings, and verification coverage."}
+          <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl">
+            {project.name}
+          </h1>
+
+          <p className="mt-3 text-xl text-zinc-300">{project.symbol}</p>
+
+          <p className="mt-5 max-w-3xl text-zinc-400">
+            {project.description?.trim()
+              ? project.description
+              : "Live public accountability view for disclosed wallets, risk signals, trust metrics, and investor visibility."}
           </p>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-5">
-            <div className="rounded-2xl border border-zinc-800 p-4">
-              <div className="text-xs text-zinc-400">Project Symbol</div>
-              <div className="mt-2 text-xl font-bold">{project.symbol}</div>
-            </div>
-
-            <div className="rounded-2xl border border-zinc-800 p-4">
-              <div className="text-xs text-zinc-400">Disclosed Wallets</div>
-              <div className="mt-2 text-xl font-bold">{metrics.disclosedWallets}</div>
-            </div>
-
-            <div className="rounded-2xl border border-zinc-800 p-4">
-              <div className="text-xs text-zinc-400">Wallets Holding {project.symbol}</div>
-              <div className="mt-2 text-xl font-bold">{metrics.walletsHolding}</div>
-            </div>
-
-            <div className="rounded-2xl border border-zinc-800 p-4">
-              <div className="text-xs text-zinc-400">Tracked {project.symbol}</div>
-              <div className="mt-2 text-xl font-bold">{formatCompact(metrics.trackedToken)}</div>
-            </div>
-
-            <div className="rounded-2xl border border-zinc-800 p-4">
-              <div className="text-xs text-zinc-400">Tracked SOL</div>
-              <div className="mt-2 text-xl font-bold">{formatNumber(metrics.trackedSol)}</div>
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-zinc-800 p-4">
-            <div className="text-xs text-zinc-400">Mint Address</div>
-            <div className="mt-2 break-all text-sm text-zinc-200">{project.mint}</div>
-          </div>
-        </section>
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">Investor-Grade Score</h2>
-                <p className="mt-2 text-sm text-zinc-400">
-                  Concentration, distribution, and verification coverage.
-                </p>
-              </div>
-              <span className="rounded-full border border-red-600/40 bg-red-500/10 px-3 py-1 text-xs text-red-300">
-                {scoreSeverityLabel(metrics.investorScore)}
-              </span>
-            </div>
-
-            <div className="mt-6 text-5xl font-bold">{metrics.investorScore}</div>
-            <div className="mt-4 h-2 rounded-full bg-zinc-800">
-              <div
-                className="h-2 rounded-full bg-red-500"
-                style={{ width: `${metrics.investorScore}%` }}
-              />
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-zinc-800 p-4">
-                <div className="text-xs text-zinc-400">Top Holder</div>
-                <div className="mt-2 text-lg font-bold">{metrics.topHolderPct.toFixed(1)}%</div>
-              </div>
-              <div className="rounded-2xl border border-zinc-800 p-4">
-                <div className="text-xs text-zinc-400">Top 3 Concentration</div>
-                <div className="mt-2 text-lg font-bold">{metrics.top3Pct.toFixed(1)}%</div>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">Sell Pressure Index</h2>
-                <p className="mt-2 text-sm text-zinc-400">
-                  Marketing, dev exposure, and recent movement risk.
-                </p>
-              </div>
-              <span className="rounded-full border border-red-600/40 bg-red-500/10 px-3 py-1 text-xs text-red-300">
-                {metrics.sellPressure >= 7 ? "Critical" : metrics.sellPressure >= 4 ? "Elevated" : "Low"}
-              </span>
-            </div>
-
-            <div className="mt-6 text-5xl font-bold">{metrics.sellPressure}/10</div>
-            <div className="mt-4 h-2 rounded-full bg-zinc-800">
-              <div
-                className="h-2 rounded-full bg-red-500"
-                style={{ width: `${metrics.sellPressure * 10}%` }}
-              />
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-zinc-800 p-4">
-                <div className="text-xs text-zinc-400">Marketing Exposure</div>
-                <div className="mt-2 text-lg font-bold">{metrics.marketingPct.toFixed(1)}%</div>
-              </div>
-              <div className="rounded-2xl border border-zinc-800 p-4">
-                <div className="text-xs text-zinc-400">Dev Exposure</div>
-                <div className="mt-2 text-lg font-bold">{metrics.devPct.toFixed(1)}%</div>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
-            <h2 className="text-2xl font-bold">Signal Summary</h2>
-
-            <div className="mt-6 space-y-3">
-              <div className="rounded-2xl border border-zinc-800 p-4">
-                <div className="text-xs text-zinc-400">Treasury Share</div>
-                <div className="mt-2 text-lg font-bold">{metrics.treasuryPct.toFixed(1)}%</div>
-              </div>
-
-              <div className="rounded-2xl border border-zinc-800 p-4">
-                <div className="text-xs text-zinc-400">Critical Alerts</div>
-                <div className="mt-2 text-lg font-bold">
-                  {alerts?.filter((a) => a.severity === "critical").length || 0}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-zinc-800 p-4">
-                <div className="text-xs text-zinc-400">Warnings / Info</div>
-                <div className="mt-2 text-lg font-bold">
-                  {(alerts?.filter((a) => a.severity === "warning").length || 0)}/
-                  {(alerts?.filter((a) => a.severity === "info").length || 0)}
-                </div>
-              </div>
-            </div>
-          </section>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
-            <h2 className="text-2xl font-bold">Trust Seal</h2>
-            <p className="mt-2 text-sm text-zinc-400">
-              Public-facing verification block for websites, investor decks, and community pages.
-            </p>
+        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-5 py-4 text-right">
+          <div className="text-xs uppercase tracking-[0.2em] text-emerald-300/80">
+            Status
+          </div>
+          <div className="mt-2 text-lg font-semibold text-white">Active</div>
+        </div>
+      </div>
 
-            <div className="mt-6 rounded-2xl border border-zinc-800 p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xl font-semibold">{project.name}</div>
-                  <div className="mt-2 text-sm text-cyan-400">Verified by Project</div>
-                  <div className="mt-2 text-sm text-zinc-400">
-                    Verified by Project • {metrics.disclosedWallets} wallets disclosed • {claimsUpdatedAt ? formatDate(claimsUpdatedAt) : "Not yet claimed"}
-                  </div>
-                </div>
-
-                <span className="rounded-full border border-emerald-600/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
-                  {claimsCount > 0 ? "Verified" : "Unverified"}
-                </span>
-              </div>
-
-              <div className="mt-6 rounded-xl border border-zinc-800 bg-black p-4">
-                <div className="text-xs text-zinc-400">SVG MARKUP</div>
-                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">
-{`<svg width="640" height="160" xmlns="http://www.w3.org/2000/svg">
-  <rect width="640" height="160" rx="24" fill="#09090b" />
-  <text x="32" y="50" fill="#ffffff" font-size="28" font-family="Arial">WEB3MB Trust Seal</text>
-  <text x="32" y="88" fill="#22d3ee" font-size="20" font-family="Arial">${project.name}</text>
-  <text x="32" y="118" fill="#a1a1aa" font-size="16" font-family="Arial">Verified by Project • ${metrics.disclosedWallets} wallets disclosed</text>
-</svg>`}
-                </pre>
-              </div>
-
-              <div className="mt-4 rounded-xl border border-zinc-800 bg-black p-4">
-                <div className="text-xs text-zinc-400">EMBED SNIPPET</div>
-                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">
-{`<img src="https://app.web3mb.com/token/${slug}" alt="${project.name} trust seal" />`}
-                </pre>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
-            <h2 className="text-2xl font-bold">Risk Notes</h2>
-            <p className="mt-2 text-sm text-zinc-400">
-              Quick interpretation of current wallet concentration and flow risk.
-            </p>
-
-            <div className="mt-6 space-y-3">
-              {riskNotes.map((note, index) => (
-                <div key={index} className="rounded-2xl border border-zinc-800 p-4 text-sm text-zinc-200">
-                  {note}
-                </div>
-              ))}
-            </div>
-          </section>
+      <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          <MetricCard label="Project Symbol" value={project.symbol} />
+          <MetricCard label="Disclosed Wallets" value={metrics.walletCount} />
+          <MetricCard label="Verified Wallets" value={metrics.verifiedCount} />
+          <MetricCard
+            label="Verification Coverage"
+            value={formatPercent(metrics.verificationCoverage)}
+          />
+          <MetricCard
+            label="Declared Allocation"
+            value={formatNumber(metrics.declaredAllocation, 0)}
+            compact
+          />
+          <MetricCard
+            label="Live Balance"
+            value={formatNumber(metrics.trackedToken)}
+            compact
+          />
         </div>
 
-        <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
-          <div className="flex items-center justify-between gap-4">
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+            Mint Address
+          </div>
+          <div className="mt-2 break-all text-zinc-300">{project.mint}</div>
+        </div>
+      </section>
+
+      <section className="mt-8 grid gap-6 xl:grid-cols-12">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] xl:col-span-3">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold">Disclosed Wallets</h2>
-              <p className="mt-2 text-sm text-zinc-400">
-                {walletsLoading
-                  ? "Refreshing live balances..."
-                  : walletsError
-                  ? `Live wallet feed issue: ${walletsError}`
-                  : "Live wallet snapshot is active."}
-              </p>
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+                Investor-Grade Score
+              </div>
+              <h2 className="mt-3 text-4xl font-bold">{metrics.investorScore}</h2>
             </div>
 
-            <div className="rounded-xl border border-zinc-800 px-4 py-2 text-sm text-zinc-300">
-              Verification Coverage: {metrics.verificationCoverage.toFixed(0)}%
+            <div
+              className={`rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.2em] ${
+                metrics.investorScore >= 80
+                  ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
+                  : metrics.investorScore >= 60
+                  ? "border border-cyan-400/20 bg-cyan-400/10 text-cyan-300"
+                  : metrics.investorScore >= 40
+                  ? "border border-yellow-400/20 bg-yellow-400/10 text-yellow-300"
+                  : "border border-red-400/20 bg-red-400/10 text-red-300"
+              }`}
+            >
+              {metrics.investorScore >= 80
+                ? "Strong"
+                : metrics.investorScore >= 60
+                ? "Healthy"
+                : metrics.investorScore >= 40
+                ? "Elevated Risk"
+                : "High Risk"}
             </div>
           </div>
 
-          <div className="mt-6 space-y-4">
-            {mergedWallets.map((wallet, index) => (
-              <div key={`${wallet.address}-${index}`} className="rounded-2xl border border-zinc-800 p-5">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <div className="text-2xl font-semibold">{wallet.label}</div>
-                    <div className="mt-1 text-sm uppercase tracking-wide text-cyan-400">
-                      {wallet.category}
-                    </div>
-                  </div>
+          <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/10">
+            <div
+              className={`h-full ${scoreColor(metrics.investorScore)}`}
+              style={{ width: `${metrics.investorScore}%` }}
+            />
+          </div>
 
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                    <div className="rounded-xl border border-zinc-800 p-3">
-                      <div className="text-xs text-zinc-400">Allocation</div>
-                      <div className="mt-1 font-semibold">
-                        {wallet.allocation != null ? formatCompact(Number(wallet.allocation)) : "Not set"}
-                      </div>
-                    </div>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Top Holder</div>
+              <div className="mt-2 text-lg font-semibold">
+                {formatPercent(metrics.topWalletPct)}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Top 3 Concentration</div>
+              <div className="mt-2 text-lg font-semibold">
+                {formatPercent(metrics.top3Pct)}
+              </div>
+            </div>
+          </div>
+        </div>
 
-                    <div className="rounded-xl border border-zinc-800 p-3">
-                      <div className="text-xs text-zinc-400">{project.symbol} Balance</div>
-                      <div className="mt-1 font-semibold">
-                        {formatCompact(wallet.tokenBalance || 0)}
-                      </div>
-                    </div>
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] xl:col-span-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+                Sell Pressure Index
+              </div>
+              <h2 className="mt-3 text-4xl font-bold">
+                {Math.min(10, Math.round((metrics.devPct + metrics.marketingPct) / 10))}/10
+              </h2>
+            </div>
 
-                    <div className="rounded-xl border border-zinc-800 p-3">
-                      <div className="text-xs text-zinc-400">SOL Balance</div>
-                      <div className="mt-1 font-semibold">
-                        {formatNumber(wallet.solBalance || 0)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-zinc-300">
+              {metrics.devPct + metrics.marketingPct > 20 ? "Warm" : "Low"}
+            </div>
+          </div>
 
-                <div className="mt-4 break-all text-sm text-zinc-400">{wallet.address}</div>
+          <div className="mt-5 grid gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Marketing Exposure</div>
+              <div className="mt-2 text-lg font-semibold">
+                {formatPercent(metrics.marketingPct)}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Dev Exposure</div>
+              <div className="mt-2 text-lg font-semibold">
+                {formatPercent(metrics.devPct)}
+              </div>
+            </div>
+          </div>
+        </div>
 
-                {wallet.purpose ? (
-                  <div className="mt-3 text-zinc-300">Purpose: {wallet.purpose}</div>
-                ) : null}
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] xl:col-span-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+                Allocation Integrity
+              </div>
+              <h2 className="mt-3 text-4xl font-bold">
+                {metrics.declaredAllocation > 0
+                  ? formatNumber((metrics.trackedToken / metrics.declaredAllocation) * 100)
+                  : "0"}
+              </h2>
+            </div>
+
+            <div className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-cyan-300">
+              Ratio
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Allocation Tracked</div>
+              <div className="mt-2 text-lg font-semibold">
+                {formatNumber(metrics.declaredAllocation, 0)}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Treasury Share</div>
+              <div className="mt-2 text-lg font-semibold">
+                {formatPercent(metrics.treasuryPct)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] xl:col-span-3">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+            Verification Summary
+          </div>
+
+          <div className="mt-5 grid gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Public Verification Coverage</div>
+              <div className="mt-2 text-2xl font-semibold">
+                {formatPercent(metrics.verificationCoverage)}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Critical Alerts</div>
+              <div className="mt-2 text-2xl font-semibold">{metrics.criticalCount}</div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Warnings / Info</div>
+              <div className="mt-2 text-2xl font-semibold">{metrics.warningCount}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-12">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] xl:col-span-6">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+            Trust Seal
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5">
+            <div className="text-lg font-semibold text-white">{project.name}</div>
+            <div className="mt-1 text-cyan-300">Transparency Profile</div>
+            <div className="mt-2 text-sm text-zinc-400">
+              {metrics.walletCount} wallet{metrics.walletCount === 1 ? "" : "s"} disclosed •{" "}
+              {formatPercent(metrics.verificationCoverage)} verified
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+                Trust Seal URL
+              </div>
+              <div className="mt-3 break-all text-sm text-zinc-300">
+                https://app.web3mb.com/token/{project.slug}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+                HTML Embed Code
+              </div>
+              <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">
+                {trustSealMarkup}
+              </pre>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] xl:col-span-3">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+            Risk Notes
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {metrics.riskNotes.map((note, index) => (
+              <div
+                key={`${note}-${index}`}
+                className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-7 text-zinc-300"
+              >
+                {note}
               </div>
             ))}
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
-          <div className="flex items-center justify-between gap-4">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] xl:col-span-3">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+            Public Verification Details
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Verification Coverage</div>
+              <div className="mt-2 text-lg font-semibold">
+                {metrics.verifiedCount}/{metrics.walletCount} wallets
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Latest Wallet Data</div>
+              <div className="mt-2 text-sm text-zinc-300">
+                {walletsUpdatedAt ? formatDate(walletsUpdatedAt) : "Pending"}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="text-xs text-zinc-500">Latest Alert Data</div>
+              <div className="mt-2 text-sm text-zinc-300">
+                {alertsUpdatedAt ? formatDate(alertsUpdatedAt) : "Pending"}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-12">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] xl:col-span-8">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold">Recent Alerts</h2>
+              <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+                All Disclosed Wallets
+              </div>
               <p className="mt-2 text-sm text-zinc-400">
-                {alertsLoading
-                  ? "Refreshing live alert feed..."
-                  : alertsError
-                  ? `Alert feed issue: ${alertsError}`
-                  : "Recent wallet movements and risk signals."}
+                Every disclosed wallet is shown below, including token balance,
+                SOL balance, allocation, and verification context.
               </p>
+            </div>
+
+            <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-zinc-300">
+              {loadingWallets ? "Loading..." : `${metrics.walletCount} tracked`}
             </div>
           </div>
 
-          <div className="mt-6 space-y-3">
-            {alerts && alerts.length > 0 ? (
-              alerts.map((alert) => (
-                <div key={alert.signature} className="rounded-2xl border border-zinc-800 p-4">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          {walletError ? (
+            <div className="mt-6 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-red-300">
+              {walletError}
+            </div>
+          ) : loadingWallets ? (
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5 text-zinc-400">
+              Loading wallet disclosures...
+            </div>
+          ) : wallets.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-zinc-400">
+              No wallets have been added yet.
+            </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {wallets.map((wallet, index) => (
+                <div
+                  key={`${wallet.address}-${index}`}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-5"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
-                      <div className="font-semibold">{alert.message}</div>
-                      <div className="mt-1 text-sm text-zinc-400">
-                        {alert.wallet} • {alert.category} • {formatDate(alert.createdAt)}
+                      <div className="text-xl font-semibold text-white">{wallet.label}</div>
+                      <div className="mt-1 text-sm uppercase tracking-[0.16em] text-cyan-300">
+                        {wallet.category}
+                      </div>
+                      <div className="mt-3 text-sm text-zinc-400">
+                        {wallet.address}
+                      </div>
+                      <div className="mt-3 text-sm text-zinc-300">
+                        Purpose: {wallet.purpose || "No purpose provided"}
                       </div>
                     </div>
 
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        alert.severity === "critical"
-                          ? "border border-red-600/40 bg-red-500/10 text-red-300"
-                          : alert.severity === "warning"
-                          ? "border border-yellow-600/40 bg-yellow-500/10 text-yellow-300"
-                          : "border border-cyan-600/40 bg-cyan-500/10 text-cyan-300"
-                      }`}
-                    >
-                      {alert.severity}
-                    </span>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                          Allocation
+                        </div>
+                        <div className="mt-2 font-semibold text-white">
+                          {formatNumber(wallet.allocation || 0, 0)}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                          {project.symbol} Balance
+                        </div>
+                        <div className="mt-2 font-semibold text-white">
+                          {formatNumber(wallet.tokenBalance || 0)}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                          SOL Balance
+                        </div>
+                        <div className="mt-2 font-semibold text-white">
+                          {formatNumber(wallet.solBalance || 0, 4)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] xl:col-span-4">
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+            Wallet Category Summaries
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {metrics.categoryRows.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-sm text-zinc-400">
+                No labeled wallet categories available yet.
+              </div>
+            ) : (
+              metrics.categoryRows.map((row) => (
+                <div
+                  key={row.category}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="font-semibold capitalize text-white">
+                      {row.category}
+                    </div>
+                    <div className="text-sm text-zinc-300">
+                      {formatPercent(row.pct)}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-cyan-400"
+                      style={{ width: `${Math.min(100, row.pct)}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-3 text-sm text-zinc-400">
+                    {formatNumber(row.balance)} {project.symbol}
                   </div>
                 </div>
               ))
-            ) : (
-              <div className="rounded-2xl border border-zinc-800 p-4 text-zinc-400">
-                No recent alerts yet.
-              </div>
             )}
           </div>
-        </section>
-
-        <div>
-          <Link
-            href="/app/projects"
-            className="inline-block rounded-xl bg-white px-5 py-3 font-semibold text-black"
-          >
-            Back to My Projects
-          </Link>
         </div>
-      </div>
+      </section>
+
+      <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+              Recent Alerts
+            </div>
+            <p className="mt-2 text-sm text-zinc-400">
+              Transfer and activity alerts for disclosed wallets.
+            </p>
+          </div>
+
+          <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm text-zinc-300">
+            {loadingAlerts ? "Loading..." : `${alerts.length} alert${alerts.length === 1 ? "" : "s"}`}
+          </div>
+        </div>
+
+        {alertError ? (
+          <div className="mt-6 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-red-300">
+            {alertError}
+          </div>
+        ) : loadingAlerts ? (
+          <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-5 text-zinc-400">
+            Loading alert stream...
+          </div>
+        ) : alerts.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-zinc-400">
+            No alerts detected yet.
+          </div>
+        ) : (
+          <div className="mt-6 space-y-4">
+            {alerts.map((alert, index) => (
+              <div
+                key={`${alert.id || index}`}
+                className="rounded-2xl border border-white/10 bg-black/20 p-5"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="text-lg font-semibold text-white">
+                        {alert.title || "Wallet Alert"}
+                      </div>
+                      <div
+                        className={`rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.2em] ${severityClass(
+                          alert.severity
+                        )}`}
+                      >
+                        {alert.severity || "Info"}
+                      </div>
+                    </div>
+
+                    <p className="mt-3 max-w-4xl text-zinc-300">
+                      {alert.message || "A monitoring event was detected for this project."}
+                    </p>
+
+                    {alert.txSignature ? (
+                      <p className="mt-3 text-sm text-zinc-500">
+                        Tx: {shortAddress(alert.txSignature, 8, 8)}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="text-sm text-zinc-500">
+                    {formatDate(alert.createdAt)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   );
 }

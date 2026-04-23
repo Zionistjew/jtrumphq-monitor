@@ -1,96 +1,155 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 
-type Project = {
+function ProjectCard({
+  id,
+  name,
+  symbol,
+  slug,
+}: {
   id: number;
   name: string;
-  slug: string;
   symbol: string;
-  created_at?: string;
-};
-
-export default function ProjectsPage() {
-  const supabase = createClient();
-
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    async function loadProjects() {
-      setLoading(true);
-      setError("");
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        setError("You are not logged in.");
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("projects")
-        .select("id, name, slug, symbol, created_at")
-        .eq("user_id", user.id)
-        .order("id", { ascending: false });
-
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-        return;
-      }
-
-      setProjects(data || []);
-      setLoading(false);
-    }
-
-    loadProjects();
-  }, [supabase]);
-
+  slug: string;
+}) {
   return (
-    <main className="p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">My Projects</h1>
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] transition hover:border-cyan-400/20 hover:bg-white/[0.07]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+            Project
+          </div>
+          <h2 className="mt-3 text-2xl font-bold text-white">{name}</h2>
+          <p className="mt-2 text-zinc-300">{symbol}</p>
+        </div>
 
-        <Link
-          href="/app/projects/new"
-          className="rounded bg-white px-4 py-2 font-semibold text-black"
-        >
-          New Project
-        </Link>
+        <div className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-cyan-300">
+          Live
+        </div>
       </div>
 
-      {loading ? (
-        <p>Loading projects...</p>
-      ) : error ? (
-        <p className="text-red-500">Failed to load projects: {error}</p>
-      ) : projects.length ? (
-        <div className="space-y-4">
-          {projects.map((project) => (
-            <div key={project.id} className="rounded border p-4">
-              <div className="text-xl font-semibold">{project.name}</div>
-
-              <div className="mt-2">Symbol: {project.symbol}</div>
-              <div>Slug: {project.slug}</div>
-
-              <div className="mt-4 flex gap-4">
-                <Link href={`/token/${project.slug}`} className="underline">
-                  View Public Page
-                </Link>
-              </div>
-            </div>
-          ))}
+      <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
+          Slug
         </div>
-      ) : (
-        <p>No projects yet.</p>
-      )}
+        <div className="mt-2 break-all text-white">{slug}</div>
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link
+          href={`/app/projects/${id}`}
+          className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 font-semibold text-white transition hover:bg-white/10"
+        >
+          Open Owner Console
+        </Link>
+
+        <Link
+          href={`/token/${slug}`}
+          className="rounded-xl bg-white px-4 py-3 font-semibold text-black transition hover:bg-zinc-200"
+        >
+          View Public Dashboard
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+export default async function ProjectsPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return <div className="p-8 text-white">Not authenticated</div>;
+  }
+
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, name, slug, symbol")
+    .eq("owner_id", user.id)
+    .order("id", { ascending: false });
+
+  return (
+    <main className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
+      <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-cyan-300">
+            Project Management
+          </div>
+
+          <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl">
+            My Projects
+          </h1>
+
+          <p className="mt-4 max-w-3xl text-zinc-400">
+            Manage your transparency projects, review owner-side details, and
+            open each public dashboard from one place.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/app"
+            className="rounded-xl border border-white/15 bg-white/5 px-5 py-3 font-semibold text-white backdrop-blur-sm transition hover:bg-white/10"
+          >
+            Back to Home
+          </Link>
+
+          <Link
+            href="/app/projects/new"
+            className="rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-zinc-200"
+          >
+            Create New Project
+          </Link>
+        </div>
+      </div>
+
+      <section className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold">Owner Portfolio</h2>
+            <p className="mt-2 text-sm text-zinc-400">
+              Only projects owned by your account appear here.
+            </p>
+          </div>
+
+          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
+            Total Projects: {projects?.length || 0}
+          </div>
+        </div>
+
+        {!projects || projects.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-10 text-center">
+            <p className="text-lg text-zinc-300">No projects yet.</p>
+            <p className="mt-2 text-sm text-zinc-500">
+              Create your first WEB3MB transparency project to get started.
+            </p>
+
+            <div className="mt-6">
+              <Link
+                href="/app/projects/new"
+                className="rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-zinc-200"
+              >
+                Create First Project
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-6 xl:grid-cols-2">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                id={project.id}
+                name={project.name}
+                symbol={project.symbol}
+                slug={project.slug}
+              />
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   );
 }
