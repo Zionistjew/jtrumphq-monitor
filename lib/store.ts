@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import crypto from "crypto";
 import type { PlanKey } from "./plans";
 
@@ -57,35 +55,17 @@ type DB = {
   nonces: NonceRecord[];
 };
 
-const DATA_DIR = path.join(process.cwd(), ".data");
-const DB_PATH = path.join(DATA_DIR, "db.json");
-
-function ensureDb() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  if (!fs.existsSync(DB_PATH)) {
-    const initial: DB = {
-      payments: [],
-      users: [],
-      entitlements: [],
-      nonces: [],
-    };
-    fs.writeFileSync(DB_PATH, JSON.stringify(initial, null, 2), "utf-8");
-  }
-}
-
-function readDb(): DB {
-  ensureDb();
-  const raw = fs.readFileSync(DB_PATH, "utf-8");
-  return JSON.parse(raw) as DB;
-}
-
-function writeDb(db: DB) {
-  ensureDb();
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), "utf-8");
-}
+/**
+ * Temporary in-memory store
+ * Works on Vercel without filesystem writes
+ * Later we move this fully into Supabase
+ */
+const db: DB = {
+  payments: [],
+  users: [],
+  entitlements: [],
+  nonces: [],
+};
 
 export function randomId(prefix: string) {
   return `${prefix}_${crypto.randomBytes(8).toString("hex")}`;
@@ -93,44 +73,47 @@ export function randomId(prefix: string) {
 
 export const store = {
   getDb(): DB {
-    return readDb();
+    return db;
   },
 
-  saveDb(db: DB) {
-    writeDb(db);
+  saveDb(updatedDb: DB) {
+    db.payments = updatedDb.payments;
+    db.users = updatedDb.users;
+    db.entitlements = updatedDb.entitlements;
+    db.nonces = updatedDb.nonces;
   },
 
   createPayment(payment: PaymentRecord) {
-    const db = readDb();
     db.payments.push(payment);
-    writeDb(db);
     return payment;
   },
 
   updatePayment(id: string, updates: Partial<PaymentRecord>) {
-    const db = readDb();
     const idx = db.payments.findIndex((p) => p.id === id);
+
     if (idx === -1) return null;
-    db.payments[idx] = { ...db.payments[idx], ...updates };
-    writeDb(db);
+
+    db.payments[idx] = {
+      ...db.payments[idx],
+      ...updates,
+    };
+
     return db.payments[idx];
   },
 
   getPaymentById(id: string) {
-    const db = readDb();
     return db.payments.find((p) => p.id === id) ?? null;
   },
 
   getPaymentBySignature(signature: string) {
-    const db = readDb();
     return db.payments.find((p) => p.txSignature === signature) ?? null;
   },
 
   getOrCreateUser(walletAddress: string, role: "admin" | "user" = "user") {
-    const db = readDb();
     const existing = db.users.find(
       (u) => u.walletAddress.toLowerCase() === walletAddress.toLowerCase()
     );
+
     if (existing) return existing;
 
     const user: UserRecord = {
@@ -141,17 +124,15 @@ export const store = {
     };
 
     db.users.push(user);
-    writeDb(db);
+
     return user;
   },
 
   getUserById(userId: string) {
-    const db = readDb();
     return db.users.find((u) => u.id === userId) ?? null;
   },
 
   getUserByWallet(walletAddress: string) {
-    const db = readDb();
     return (
       db.users.find(
         (u) => u.walletAddress.toLowerCase() === walletAddress.toLowerCase()
@@ -160,46 +141,42 @@ export const store = {
   },
 
   createEntitlement(entitlement: EntitlementRecord) {
-    const db = readDb();
     db.entitlements.push(entitlement);
-    writeDb(db);
     return entitlement;
   },
 
   getActiveEntitlement(userId: string) {
-    const db = readDb();
     const now = Date.now();
 
     return (
       db.entitlements.find((e) => {
         if (e.userId !== userId) return false;
         if (e.status !== "active") return false;
+
         if (!e.endsAt) return true;
+
         return new Date(e.endsAt).getTime() > now;
       }) ?? null
     );
   },
 
   getUserEntitlements(userId: string) {
-    const db = readDb();
     return db.entitlements.filter((e) => e.userId === userId);
   },
 
   createNonce(walletAddress: string, nonce: string) {
-    const db = readDb();
     db.nonces = db.nonces.filter(
       (n) => n.walletAddress.toLowerCase() !== walletAddress.toLowerCase()
     );
+
     db.nonces.push({
       walletAddress,
       nonce,
       createdAt: new Date().toISOString(),
     });
-    writeDb(db);
   },
 
   getNonce(walletAddress: string) {
-    const db = readDb();
     return (
       db.nonces.find(
         (n) => n.walletAddress.toLowerCase() === walletAddress.toLowerCase()
@@ -208,10 +185,8 @@ export const store = {
   },
 
   deleteNonce(walletAddress: string) {
-    const db = readDb();
     db.nonces = db.nonces.filter(
       (n) => n.walletAddress.toLowerCase() !== walletAddress.toLowerCase()
     );
-    writeDb(db);
   },
 };
