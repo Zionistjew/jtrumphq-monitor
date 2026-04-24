@@ -24,6 +24,7 @@ type PaymentSession = {
   expires_at?: string;
   amountUsd?: number;
   solUsdRate?: number;
+  solUsdRateSource?: string;
 };
 
 type PhantomProvider = {
@@ -69,7 +70,7 @@ const PLAN_CONFIG = {
 } as const;
 
 function maskWallet(wallet?: string) {
-  if (!wallet) return "Hidden until payment session is ready";
+  if (!wallet) return "";
   if (wallet.length <= 12) return wallet;
   return `${wallet.slice(0, 6)}...${wallet.slice(-6)}`;
 }
@@ -84,10 +85,15 @@ function getRecipient(payment: PaymentSession | null) {
 
 function getLamports(payment: PaymentSession | null) {
   if (!payment) return 0;
-  if (typeof payment.amountLamports === "number") return payment.amountLamports;
+
+  if (typeof payment.amountLamports === "number") {
+    return payment.amountLamports;
+  }
+
   if (typeof payment.amountSol === "number") {
     return Math.round(payment.amountSol * LAMPORTS_PER_SOL);
   }
+
   return 0;
 }
 
@@ -102,6 +108,7 @@ export default function CryptoPlanCheckoutPage({
   params: { plan: string };
 }) {
   const normalizedPlan = params.plan?.toLowerCase();
+
   const plan =
     normalizedPlan === "starter" || normalizedPlan === "growth"
       ? (normalizedPlan as CheckoutPlan)
@@ -114,7 +121,6 @@ export default function CryptoPlanCheckoutPage({
   const [status, setStatus] = useState("Preparing payment session...");
   const [error, setError] = useState("");
   const [signature, setSignature] = useState("");
-  const [showRecipient, setShowRecipient] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const rpcUrl = useMemo(() => {
@@ -268,6 +274,7 @@ export default function CryptoPlanCheckoutPage({
       <main className="min-h-screen bg-black px-6 py-12 text-white">
         <div className="mx-auto max-w-2xl rounded-3xl border border-red-500/40 bg-red-500/5 p-8">
           <h1 className="text-3xl font-bold">Invalid Plan</h1>
+
           <p className="mt-4 text-zinc-300">
             The selected checkout plan does not exist.
           </p>
@@ -328,7 +335,8 @@ export default function CryptoPlanCheckoutPage({
             <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
               Support
             </div>
-            <div className="mt-3 text-xs font-semibold break-all">
+
+            <div className="mt-3 break-all text-xs font-semibold">
               verify@web3mb.com
             </div>
           </div>
@@ -405,35 +413,30 @@ export default function CryptoPlanCheckoutPage({
 
                 <div className="rounded-xl border border-white/10 bg-black/30 p-4">
                   <div className="text-zinc-500">Amount</div>
+
                   <div className="mt-1 font-semibold">
                     {payment?.amountUsd ? `$${payment.amountUsd} USD / ` : ""}
                     {getSolAmount(payment)}
                   </div>
+
                   {payment?.solUsdRate ? (
                     <div className="mt-1 text-xs text-zinc-500">
-                      Conversion rate used: 1 SOL = ${payment.solUsdRate}
+                      Live conversion rate: 1 SOL = ${payment.solUsdRate}
+                    </div>
+                  ) : null}
+
+                  {payment?.solUsdRateSource ? (
+                    <div className="mt-1 text-xs text-zinc-600">
+                      Rate source: {payment.solUsdRateSource}
                     </div>
                   ) : null}
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <div className="text-zinc-500">Recipient Wallet</div>
-                      <div className="mt-1 break-all font-semibold">
-                        {showRecipient
-                          ? getRecipient(payment)
-                          : maskWallet(getRecipient(payment))}
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowRecipient((value) => !value)}
-                      className="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:bg-white/10"
-                    >
-                      {showRecipient ? "Hide" : "View"}
-                    </button>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <div className="text-emerald-300">Secure Recipient</div>
+                  <div className="mt-1 text-zinc-300">
+                    Payment destination is embedded securely inside the Phantom
+                    transaction and is not displayed publicly on this page.
                   </div>
                 </div>
               </div>

@@ -1,135 +1,143 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import type { ReactNode } from "react";
 
-type AppLayoutProps = {
-  children: ReactNode;
-};
-
-const navItems = [
-  {
-    section: "Workspace",
-    links: [
-      { label: "Dashboard", href: "/app" },
-      { label: "My Projects", href: "/app/projects", badge: "Live" },
-      { label: "Create Project", href: "/app/projects/new", primary: true },
-    ],
-  },
-  {
-    section: "Operations",
-    links: [
-      { label: "Public Directory", href: "/transparency" },
-      { label: "Wallet Verification", href: "/app/verify-wallets" },
-      { label: "Alert Center", href: "/app/alerts" },
-    ],
-  },
+const workspaceItems = [
+  { label: "Dashboard", href: "/app" },
+  { label: "My Projects", href: "/app/projects", badge: "LIVE" },
+  { label: "Create Project", href: "/app/projects/new", primary: true },
 ];
 
-function NavLink({
-  label,
-  href,
-  badge,
-  primary = false,
+const operationsItems = [
+  { label: "Public Directory", href: "/transparency" },
+  { label: "Wallet Verification", href: "/app/verify-wallets" },
+  { label: "Alert Center", href: "/app/alerts" },
+  { label: "Billing", href: "/app/billing", badge: "NEW" },
+];
+
+export default function AppLayout({
+  children,
 }: {
-  label: string;
-  href: string;
-  badge?: string;
-  primary?: boolean;
+  children: ReactNode;
 }) {
   return (
-    <Link
-      href={href}
-      className={
-        primary
-          ? "flex items-center justify-between rounded-2xl border border-white/70 bg-white px-5 py-4 font-semibold text-black hover:bg-zinc-200"
-          : "flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 font-semibold text-white hover:border-cyan-400/30 hover:bg-white/[0.08]"
-      }
-    >
-      <span>{label}</span>
-
-      {badge ? (
-        <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-300">
-          {badge}
-        </span>
-      ) : null}
-    </Link>
-  );
-}
-
-export default function AppLayout({ children }: AppLayoutProps) {
-  return (
-    <div className="min-h-screen bg-[#050816] text-white">
-      <div className="flex min-h-screen">
-        <aside className="hidden w-[300px] shrink-0 border-r border-white/10 bg-[#030612]/95 xl:flex xl:flex-col">
-          <div className="border-b border-white/10 px-6 py-7">
-            <Image
-              src="/branding/web3mb-logo.png"
-              alt="WEB3MB"
-              width={220}
-              height={70}
-              className="h-auto w-auto"
-              priority
+    <div className="flex min-h-screen bg-[#030712] text-white">
+      {/* Desktop Sidebar */}
+      <aside className="hidden w-[310px] shrink-0 border-r border-white/10 bg-[#050816] xl:block">
+        <div className="flex min-h-screen flex-col">
+          {/* Logo Section */}
+          <div className="px-6 py-8">
+            <img
+              src="https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png"
+              alt="WEB3MB Logo"
+              className="h-24 w-auto object-contain"
             />
 
-            <div className="mt-6 inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-cyan-300">
+            <div className="mt-5 inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-cyan-300">
               Enterprise Console
             </div>
 
-            <p className="mt-5 text-sm leading-8 text-zinc-400">
-              Manage projects, public trust dashboards, disclosures, and
-              monitoring workflows from one connected workspace.
+            <p className="mt-5 text-sm leading-7 text-zinc-400">
+              Manage token projects, public trust dashboards, wallet disclosures,
+              and compliance workflows from one unified platform.
             </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-7">
-            <div className="space-y-8">
-              {navItems.map((group) => (
-                <div key={group.section}>
-                  <div className="mb-4 text-xs uppercase tracking-[0.22em] text-cyan-300/80">
-                    {group.section}
-                  </div>
+          {/* Workspace */}
+          <div className="border-t border-white/10 px-6 py-6">
+            <div className="mb-4 text-xs uppercase tracking-[0.24em] text-cyan-300">
+              Workspace
+            </div>
 
-                  <div className="space-y-3">
-                    {group.links.map((item) => (
-                      <NavLink
-                        key={`${group.section}-${item.label}`}
-                        label={item.label}
-                        href={item.href}
-                        badge={item.badge}
-                        primary={item.primary}
-                      />
-                    ))}
-                  </div>
-                </div>
+            <div className="space-y-3">
+              {workspaceItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={
+                    item.primary
+                      ? "flex items-center justify-between rounded-xl border border-white/10 bg-white px-4 py-4 text-sm font-semibold text-black transition hover:bg-zinc-200"
+                      : "flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-semibold text-white transition hover:bg-white/10"
+                  }
+                >
+                  <span>{item.label}</span>
+
+                  {item.badge ? (
+                    <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-[10px] tracking-[0.18em] text-cyan-300">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </Link>
               ))}
             </div>
           </div>
 
+          {/* Operations */}
           <div className="border-t border-white/10 px-6 py-6">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-              <div className="text-xs uppercase tracking-[0.22em] text-cyan-300/80">
+            <div className="mb-4 text-xs uppercase tracking-[0.24em] text-cyan-300">
+              Operations
+            </div>
+
+            <div className="space-y-3">
+              {operationsItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-semibold text-white transition hover:bg-white/10"
+                >
+                  <span>{item.label}</span>
+
+                  {item.badge ? (
+                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] tracking-[0.18em] text-emerald-300">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Support */}
+          <div className="mt-auto border-t border-white/10 px-6 py-6">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                 Support
               </div>
 
-              <a
-                href="mailto:verify@web3mb.com"
-                className="mt-4 block whitespace-nowrap text-[12px] font-semibold text-white hover:text-cyan-300"
-              >
+              <div className="mt-3 text-xs font-semibold text-white break-all">
                 verify@web3mb.com
-              </a>
+              </div>
 
-              <p className="mt-4 text-sm leading-7 text-zinc-400">
-                Use this contact for verification support, platform setup, and
-                dashboard assistance.
+              <p className="mt-3 text-sm leading-6 text-zinc-400">
+                Contact us for trust verification, onboarding help, enterprise
+                integrations, and technical support.
               </p>
             </div>
           </div>
-        </aside>
+        </div>
+      </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          {children}
+      {/* Mobile Header */}
+      <div className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-[#050816] px-4 py-4 xl:hidden">
+        <div className="flex items-center justify-between">
+          <img
+            src="https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png"
+            alt="WEB3MB Logo"
+            className="h-12 w-auto object-contain"
+          />
+
+          <Link
+            href="/app/billing"
+            className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-black"
+          >
+            Billing
+          </Link>
         </div>
       </div>
+
+      {/* Main Content */}
+      <main className="min-w-0 flex-1 pt-20 xl:pt-0">
+        {children}
+      </main>
     </div>
   );
 }
