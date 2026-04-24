@@ -18,13 +18,13 @@ type PaymentSession = {
   plan?: string;
   amountSol?: number;
   amountLamports?: number;
+  amountUsd?: number;
+  solUsdRate?: number;
+  solUsdRateSource?: string;
   recipientWallet?: string;
   recipient?: string;
   expiresAt?: string;
   expires_at?: string;
-  amountUsd?: number;
-  solUsdRate?: number;
-  solUsdRateSource?: string;
 };
 
 type PhantomProvider = {
@@ -35,12 +35,6 @@ type PhantomProvider = {
     transaction: Transaction
   ) => Promise<{ signature: string }>;
 };
-
-declare global {
-  interface Window {
-    solana?: PhantomProvider;
-  }
-}
 
 const PLAN_CONFIG = {
   starter: {
@@ -68,6 +62,11 @@ const PLAN_CONFIG = {
     ],
   },
 } as const;
+
+function getPhantomProvider(): PhantomProvider | undefined {
+  if (typeof window === "undefined") return undefined;
+  return (window as any).solana as PhantomProvider | undefined;
+}
 
 function maskWallet(wallet?: string) {
   if (!wallet) return "";
@@ -167,7 +166,7 @@ export default function CryptoPlanCheckoutPage({
     setError("");
 
     try {
-      const provider = window.solana;
+      const provider = getPhantomProvider();
 
       if (!provider?.isPhantom) {
         throw new Error("Phantom wallet is not installed.");
@@ -186,7 +185,7 @@ export default function CryptoPlanCheckoutPage({
     setLoading(true);
 
     try {
-      const provider = window.solana;
+      const provider = getPhantomProvider();
 
       if (!provider?.isPhantom) {
         throw new Error("Phantom wallet is not installed.");
