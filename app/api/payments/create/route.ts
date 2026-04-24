@@ -16,9 +16,9 @@ const PLANS = {
   },
 } as const;
 
-type PlanKey = keyof typeof PLANS;
+type Web3mbPlan = "starter" | "growth";
 
-function isValidPlan(plan: string): plan is PlanKey {
+function isValidPlan(plan: string): plan is Web3mbPlan {
   return plan === "starter" || plan === "growth";
 }
 
@@ -41,13 +41,10 @@ async function getLiveSolUsdRate() {
     );
 
     if (!response.ok) {
-      throw new Error(
-        `CoinGecko pricing request failed: ${response.status}`
-      );
+      throw new Error(`CoinGecko pricing request failed: ${response.status}`);
     }
 
     const data = await response.json();
-
     const price = Number(data?.solana?.usd);
 
     if (!Number.isFinite(price) || price <= 0) {
@@ -74,7 +71,6 @@ async function getLiveSolUsdRate() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-
     const requestedPlan = String(body.plan || "").toLowerCase();
 
     if (!isValidPlan(requestedPlan)) {
@@ -87,7 +83,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const plan: PlanKey = requestedPlan;
+    const plan: Web3mbPlan = requestedPlan;
 
     if (!RECEIVING_WALLET) {
       return NextResponse.json(
@@ -100,22 +96,14 @@ export async function POST(req: NextRequest) {
     }
 
     const config = PLANS[plan];
-
     const solPricing = await getLiveSolUsdRate();
-
-    const amountSol = Number(
-      (config.priceUsd / solPricing.rate).toFixed(4)
-    );
+    const amountSol = Number((config.priceUsd / solPricing.rate).toFixed(4));
 
     const paymentId = randomId("pay");
-
     const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + 1000 * 60 * 30);
 
-    const expiresAt = new Date(
-      createdAt.getTime() + 1000 * 60 * 30
-    );
-
-    const payment: PaymentRecord = {
+    const payment = {
       id: paymentId,
       plan,
       amountSol,
@@ -126,24 +114,24 @@ export async function POST(req: NextRequest) {
       status: "pending",
       createdAt: createdAt.toISOString(),
       expiresAt: expiresAt.toISOString(),
-    };
+    } as unknown as PaymentRecord;
 
     store.createPayment(payment);
 
     return NextResponse.json({
       ok: true,
-      paymentId: payment.id,
-      plan: payment.plan,
+      paymentId,
+      plan,
       amountUsd: config.priceUsd,
       solUsdRate: solPricing.rate,
       solUsdRateSource: solPricing.source,
-      amountSol: payment.amountSol,
-      amountLamports: payment.amountLamports,
-      reference: payment.reference,
-      memo: payment.memo,
-      status: payment.status,
-      createdAt: payment.createdAt,
-      expiresAt: payment.expiresAt,
+      amountSol,
+      amountLamports: solToLamports(amountSol),
+      reference: paymentId,
+      memo: `WEB3MB ${config.label} plan`,
+      status: "pending",
+      createdAt: createdAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
     });
   } catch (error: any) {
     console.error("POST /api/payments/create error:", error);
