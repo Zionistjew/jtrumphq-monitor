@@ -1,7 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidPlan, PLANS } from "@/lib/plans";
 import { RECEIVING_WALLET, solToLamports } from "@/lib/solana";
 import { randomId, store, type PaymentRecord } from "@/lib/store";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const PLANS = {
+  starter: {
+    label: "Starter",
+    priceUsd: 99,
+  },
+  growth: {
+    label: "Growth",
+    priceUsd: 299,
+  },
+} as const;
+
+type PlanKey = keyof typeof PLANS;
+
+function isValidPlan(plan: string): plan is PlanKey {
+  return plan === "starter" || plan === "growth";
+}
+
+function getFallbackSolUsdRate() {
+  const value = Number(process.env.SOL_USD_RATE || "86.31");
+  return Number.isFinite(value) && value > 0 ? value : 86.31;
+}
+
+async function getLiveSolUsdRate() {
+  try {
+    const response = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+      {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`CoinGecko price request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const price = Number(data?.solana?.usd);
+
+    if (!Number.isFinite(price) || price <= 0) {
+      throw new Error("Invalid SOL/USD price returned");
+    }
+
+    return {
+      rate: price,
+      source: "coingecko-live",
+    };
+  } catch (error) {
+    console.warn("Live SOL price lookup failed. Using fallback.", error);
+
+    return {
+      rate: getFallbackSolUsdRate(),
+      source: "fallback-env",
+    };
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +85,10 @@ export async function POST(req: NextRequest) {
     }
 
     const config = PLANS[plan];
+    const solPrice = await getLiveSolUsdRate();
+
+    const amountSol = Number((config.priceUsd / solPrice.rate).toFixed(4));
+
     const paymentId = randomId("pay");
     const createdAt = new Date();
     const expiresAt = new Date(createdAt.getTime() + 1000 * 60 * 30);
@@ -30,11 +96,11 @@ export async function POST(req: NextRequest) {
     const payment: PaymentRecord = {
       id: paymentId,
       plan,
-      amountSol: config.priceSol,
-      amountLamports: solToLamports(config.priceSol),
+      amountSol,
+      amountLamports: solToLamports(amountSol),
       recipientWallet: RECEIVING_WALLET,
       reference: paymentId,
-      memo: `JTRUMPHQ ${config.label} plan`,
+      memo: `WEB3MB ${config.label} plan`,
       status: "pending",
       createdAt: createdAt.toISOString(),
       expiresAt: expiresAt.toISOString(),
@@ -46,6 +112,9 @@ export async function POST(req: NextRequest) {
       ok: true,
       paymentId: payment.id,
       plan: payment.plan,
+      amountUsd: config.priceUsd,
+      solUsdRate: solPrice.rate,
+      solUsdRateSource: solPrice.source,
       amountSol: payment.amountSol,
       amountLamports: payment.amountLamports,
       recipientWallet: payment.recipientWallet,
@@ -55,9 +124,11 @@ export async function POST(req: NextRequest) {
       createdAt: payment.createdAt,
       expiresAt: payment.expiresAt,
     });
-  } catch {
+  } catch (error: any) {
+    console.error("POST /api/payments/create error:", error);
+
     return NextResponse.json(
-      { ok: false, error: "Failed to create payment" },
+      { ok: false, error: error?.message || "Failed to create payment" },
       { status: 500 }
     );
   }
