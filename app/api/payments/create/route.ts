@@ -6,6 +6,10 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const PLANS = {
+"launch-pass": {
+  label: "Launch Pass",
+  priceUsd: 149
+},
   starter: {
     label: "Starter",
     priceUsd: 99,
@@ -19,7 +23,11 @@ const PLANS = {
 type Web3mbPlan = "starter" | "growth";
 
 function isValidPlan(plan: string): plan is Web3mbPlan {
-  return plan === "starter" || plan === "growth";
+  return (
+  plan === "launch-pass" ||
+  plan === "starter" ||
+  plan === "growth"
+);
 }
 
 function getFallbackSolUsdRate() {
