@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { RECEIVING_WALLET, solToLamports } from "@/lib/solana";
-import { randomId, store, type PaymentRecord } from "@/lib/store";
+import { randomId } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 const PLANS = {
-"launch-pass": {
-  label: "Launch Pass",
-  priceUsd: 149
-},
+  "launch-pass": {
+    label: "Launch Pass",
+    priceUsd: 149,
+  },
   starter: {
     label: "Starter",
     priceUsd: 99,
@@ -20,14 +26,10 @@ const PLANS = {
   },
 } as const;
 
-type Web3mbPlan = "starter" | "growth";
+type PlanKey = keyof typeof PLANS;
 
-function isValidPlan(plan: string): plan is Web3mbPlan {
-  return (
-  plan === "launch-pass" ||
-  plan === "starter" ||
-  plan === "growth"
-);
+function isValidPlan(plan: string): plan is PlanKey {
+  return plan === "launch-pass" || plan === "starter" || plan === "growth";
 }
 
 function getFallbackSolUsdRate() {
@@ -91,8 +93,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const plan: Web3mbPlan = requestedPlan;
-
     if (!RECEIVING_WALLET) {
       return NextResponse.json(
         {
@@ -103,43 +103,56 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const plan = requestedPlan;
     const config = PLANS[plan];
+
     const solPricing = await getLiveSolUsdRate();
     const amountSol = Number((config.priceUsd / solPricing.rate).toFixed(4));
+    const amountLamports = solToLamports(amountSol);
 
     const paymentId = randomId("pay");
     const createdAt = new Date();
     const expiresAt = new Date(createdAt.getTime() + 1000 * 60 * 30);
 
-    const payment = {
-      id: paymentId,
-      plan,
-      amountSol,
-      amountLamports: solToLamports(amountSol),
-      recipientWallet: RECEIVING_WALLET,
-      reference: paymentId,
-      memo: `WEB3MB ${config.label} plan`,
-      status: "pending",
-      createdAt: createdAt.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-    } as unknown as PaymentRecord;
+    const memo = `WEB3MB ${config.label} plan`;
 
-    store.createPayment(payment);
+    const { data, error } = await supabase
+      .from("payment_sessions")
+      .insert({
+        id: paymentId,
+        plan,
+        amount_usd: config.priceUsd,
+        amount_sol: amountSol,
+        amount_lamports: amountLamports,
+        recipient_wallet: RECEIVING_WALLET,
+        reference: paymentId,
+        memo,
+        status: "pending",
+        created_at: createdAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
 
     return NextResponse.json({
       ok: true,
-      paymentId,
-      plan,
-      amountUsd: config.priceUsd,
+      paymentId: data.id,
+      plan: data.plan,
+      amountUsd: Number(data.amount_usd),
       solUsdRate: solPricing.rate,
       solUsdRateSource: solPricing.source,
-      amountSol,
-      amountLamports: solToLamports(amountSol),
-      reference: paymentId,
-      memo: `WEB3MB ${config.label} plan`,
-      status: "pending",
-      createdAt: createdAt.toISOString(),
-      expiresAt: expiresAt.toISOString(),
+      amountSol: Number(data.amount_sol),
+      amountLamports: Number(data.amount_lamports),
+      recipientWallet: data.recipient_wallet,
+      reference: data.reference,
+      memo: data.memo,
+      status: data.status,
+      createdAt: data.created_at,
+      expiresAt: data.expires_at,
     });
   } catch (error: any) {
     console.error("POST /api/payments/create error:", error);

@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { verifySolTransfer } from "@/lib/solana";
-import { store, randomId } from "@/lib/store";
-import { PLANS } from "@/lib/plans";
 import { setSessionCookie } from "@/lib/session";
 
-const PLAN_RANK: Record<string, number> = {
-  starter: 1,
-  pro: 2,
-  enterprise: 3,
+export const dynamic = "force-dynamic";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+const PLAN_DURATION: Record<string, number | null> = {
+  "launch-pass": 30,     // one-time plan = 30 days visibility
+  starter: 30,           // monthly
+  growth: 30,            // monthly
 };
 
 export async function POST(req: NextRequest) {
@@ -28,176 +34,162 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payment = store.getPaymentById(paymentId);
+    // -------------------------
+    // Fetch payment session
+    // -------------------------
+    const { data: payment, error: paymentError } = await supabase
+      .from("payment_sessions")
+      .select("*")
+      .eq("id", paymentId)
+      .single();
 
-    if (!payment) {
+    if (paymentError || !payment) {
       return NextResponse.json(
-        { ok: false, error: "Payment not found" },
+        {
+          ok: false,
+          error: "Payment session not found",
+        },
         { status: 404 }
       );
     }
 
-    const now = Date.now();
-
-    if (new Date(payment.expiresAt).getTime() < now) {
-      store.updatePayment(payment.id, { status: "expired" });
-
-      return NextResponse.json(
-        { ok: false, error: "Payment session expired" },
-        { status: 400 }
-      );
-    }
-
     if (payment.status === "confirmed") {
-      const existingUser =
-        payment.userId
-          ? store.getUserById(payment.userId)
-          : store.getUserByWallet(senderWallet);
-
-      if (existingUser) {
-        await setSessionCookie({
-          userId: existingUser.id,
-          walletAddress: existingUser.walletAddress,
-          role: existingUser.role,
-        });
-      }
-
       return NextResponse.json({
         ok: true,
-        status: "confirmed",
         unlocked: true,
-        paymentId: payment.id,
-        confirmedAt: payment.confirmedAt ?? null,
+        status: "confirmed",
         alreadyConfirmed: true,
       });
     }
 
-    store.updatePayment(payment.id, {
-      status: "submitted",
-      txSignature: signature,
-      expectedSenderWallet: senderWallet,
-    });
+    const expired =
+      new Date(payment.expires_at).getTime() < Date.now();
 
-    const verification = await verifySolTransfer({
-      signature,
-      senderWallet,
-      recipientWallet: payment.recipientWallet,
-      expectedLamports: payment.amountLamports,
-    });
-
-    if (!verification.ok) {
-      if (verification.pending) {
-        return NextResponse.json({
-          ok: true,
-          status: "submitted",
-          unlocked: false,
-          pending: true,
-          reason: verification.reason,
-          paymentId: payment.id,
-          txSignature: signature,
-        });
-      }
-
-      store.updatePayment(payment.id, {
-        status: "failed",
-        txSignature: signature,
-        expectedSenderWallet: senderWallet,
-      });
+    if (expired) {
+      await supabase
+        .from("payment_sessions")
+        .update({
+          status: "expired",
+        })
+        .eq("id", paymentId);
 
       return NextResponse.json(
         {
           ok: false,
-          status: "failed",
-          unlocked: false,
-          error: verification.reason,
-          paymentId: payment.id,
-          txSignature: signature,
+          error: "Payment session expired",
         },
         { status: 400 }
       );
     }
 
-    const user = store.getOrCreateUser(senderWallet, "user");
-
-    store.updatePayment(payment.id, {
-      status: "confirmed",
-      txSignature: signature,
-      expectedSenderWallet: senderWallet,
-      confirmedAt: new Date().toISOString(),
-      userId: user.id,
+    // -------------------------
+    // Verify blockchain transfer
+    // -------------------------
+    const verification = await verifySolTransfer({
+      signature,
+      senderWallet,
+      recipientWallet: payment.recipient_wallet,
+      expectedLamports: payment.amount_lamports,
     });
 
-    const db = store.getDb();
-    const nowIso = new Date().toISOString();
-
-    const activeEntitlements = db.entitlements.filter((e) => {
-      if (e.userId !== user.id) return false;
-      if (e.status !== "active") return false;
-      if (!e.endsAt) return true;
-      return new Date(e.endsAt).getTime() > Date.now();
-    });
-
-    const strongestExisting = activeEntitlements.sort((a, b) => {
-      return (PLAN_RANK[b.plan] || 0) - (PLAN_RANK[a.plan] || 0);
-    })[0];
-
-    for (const ent of activeEntitlements) {
-      ent.status = "expired";
-      if (!ent.endsAt) {
-        ent.endsAt = nowIso;
-      }
+    if (!verification.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: verification.reason || "Payment verification failed",
+        },
+        { status: 400 }
+      );
     }
 
-    const planConfig = PLANS[payment.plan];
-    let endsAt: string | undefined;
+    // -------------------------
+    // Create / find user
+    // -------------------------
+    let { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("wallet_address", senderWallet)
+      .single();
 
-    if (planConfig.entitlementDays === null) {
-      endsAt = undefined;
-    } else {
-      let baseTime = Date.now();
+    if (!user) {
+      const { data: newUser } = await supabase
+        .from("users")
+        .insert({
+          wallet_address: senderWallet,
+          role: "user",
+        })
+        .select()
+        .single();
 
-      if (
-        strongestExisting?.endsAt &&
-        new Date(strongestExisting.endsAt).getTime() > Date.now()
-      ) {
-        baseTime = new Date(strongestExisting.endsAt).getTime();
-      }
+      user = newUser;
+    }
 
+    // -------------------------
+    // Mark payment confirmed
+    // -------------------------
+    await supabase
+      .from("payment_sessions")
+      .update({
+        status: "confirmed",
+        sender_wallet: senderWallet,
+        tx_signature: signature,
+        confirmed_at: new Date().toISOString(),
+      })
+      .eq("id", paymentId);
+
+    // -------------------------
+    // Expire old subscriptions
+    // -------------------------
+    await supabase
+      .from("subscriptions")
+      .update({
+        status: "expired",
+      })
+      .eq("user_id", user.id)
+      .eq("status", "active");
+
+    const durationDays = PLAN_DURATION[payment.plan];
+    let endsAt = null;
+
+    if (durationDays) {
       endsAt = new Date(
-        baseTime + 1000 * 60 * 60 * 24 * planConfig.entitlementDays
+        Date.now() + durationDays * 24 * 60 * 60 * 1000
       ).toISOString();
     }
 
-    db.entitlements.push({
-      id: randomId("ent"),
-      userId: user.id,
-      plan: payment.plan,
-      status: "active",
-      sourcePaymentId: payment.id,
-      startsAt: nowIso,
-      endsAt,
-    });
+    // -------------------------
+    // Create active subscription
+    // -------------------------
+    await supabase
+      .from("subscriptions")
+      .insert({
+        user_id: user.id,
+        plan: payment.plan,
+        status: "active",
+        source_payment_id: payment.id,
+        tx_signature: signature,
+        starts_at: new Date().toISOString(),
+        ends_at: endsAt,
+      });
 
-    store.saveDb(db);
-
+    // -------------------------
+    // Create login session
+    // -------------------------
     await setSessionCookie({
       userId: user.id,
-      walletAddress: user.walletAddress,
+      walletAddress: user.wallet_address,
       role: user.role,
     });
 
-    const refreshed = store.getPaymentById(payment.id);
-
     return NextResponse.json({
       ok: true,
-      status: "confirmed",
       unlocked: true,
-      paymentId: refreshed?.id,
-      txSignature: refreshed?.txSignature ?? null,
-      confirmedAt: refreshed?.confirmedAt ?? null,
-      userId: refreshed?.userId ?? null,
+      status: "confirmed",
+      redirectTo: "/app/projects/new",
     });
   } catch (error: any) {
+    console.error("payment confirm error", error);
+
     return NextResponse.json(
       {
         ok: false,
