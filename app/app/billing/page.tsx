@@ -8,7 +8,7 @@ const plans = [
     description: "Perfect for meme coin launches and first-time token founders.",
     cta: "Launch Fast",
     href: "/checkout/crypto/launch-pass",
-    featured: false,
+    featured: true,
     features: [
       "Wallet verification",
       "Trust badge",
@@ -16,8 +16,8 @@ const plans = [
       "Liquidity disclosure",
       "Founder wallet verification",
       "30-day trust visibility",
-      "No recurring billing"
-    ]
+      "No recurring billing",
+    ],
   },
   {
     name: "Starter",
@@ -32,8 +32,8 @@ const plans = [
       "Up to 5 wallets",
       "Live monitoring",
       "Basic alerts",
-      "Trust badge"
-    ]
+      "Trust badge",
+    ],
   },
   {
     name: "Growth",
@@ -42,14 +42,14 @@ const plans = [
     description: "Best for active founders managing multiple projects.",
     cta: "Get Started",
     href: "/checkout/crypto/growth",
-    featured: true,
+    featured: false,
     features: [
       "Up to 5 projects",
       "Up to 50 wallets",
       "Advanced alerts",
       "Trust analytics",
-      "Priority support"
-    ]
+      "Priority support",
+    ],
   },
   {
     name: "Enterprise",
@@ -57,64 +57,106 @@ const plans = [
     subtitle: "Custom Pricing",
     description: "For launchpads, exchanges, funds, and agencies.",
     cta: "Contact Sales",
-    href: "/contact",
+    href: "mailto:verify@web3mb.com?subject=WEB3MB Enterprise Inquiry",
     featured: false,
     features: [
       "Unlimited projects",
       "Unlimited wallets",
       "API access",
       "White-label",
-      "Dedicated support"
-    ]
-  }
+      "Dedicated support",
+    ],
+  },
 ];
 
 export default function BillingPage() {
   return (
-    <main className="min-h-screen bg-black text-white p-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-5xl font-bold mb-4">
-          Choose Your Transparency Plan
-        </h1>
+    <main className="min-h-screen bg-black px-6 py-10 text-white">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-10">
+          <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">
+            WEB3MB Billing
+          </p>
 
-        <p className="text-zinc-400 mb-12">
-          Launch once. Scale forever. Pick the plan that fits your project.
-        </p>
+          <h1 className="mt-3 text-4xl font-bold md:text-5xl">
+            Choose Your Transparency Plan
+          </h1>
 
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <p className="mt-4 max-w-3xl text-zinc-400">
+            Launch once. Scale forever. Pick the plan that fits your project.
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`rounded-2xl border p-6 ${
+              className={
                 plan.featured
-                  ? "border-cyan-500 bg-cyan-950/20"
-                  : "border-zinc-800 bg-zinc-950"
-              }`}
+                  ? "rounded-3xl border border-cyan-500 bg-cyan-950/20 p-6 shadow-2xl shadow-cyan-950/30"
+                  : "rounded-3xl border border-zinc-800 bg-zinc-950 p-6"
+              }
             >
-              <h2 className="text-2xl font-bold mb-2">{plan.name}</h2>
-              <p className="text-sm text-zinc-400 mb-2">{plan.subtitle}</p>
-              <div className="text-4xl font-bold text-cyan-400 mb-4">
+              {plan.featured ? (
+                <div className="mb-4 inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+                  Best for New Launches
+                </div>
+              ) : null}
+
+              <h2 className="text-2xl font-bold">{plan.name}</h2>
+
+              <p className="mt-2 text-sm text-zinc-400">{plan.subtitle}</p>
+
+              <div className="mt-4 text-4xl font-bold text-cyan-400">
                 {plan.price}
               </div>
 
-              <p className="text-zinc-400 text-sm mb-6">
+              <p className="mt-5 min-h-[64px] text-sm leading-6 text-zinc-400">
                 {plan.description}
               </p>
 
-              <ul className="space-y-2 mb-6 text-sm">
+              <ul className="mt-6 space-y-2 text-sm text-zinc-200">
                 {plan.features.map((feature) => (
-                  <li key={feature}>• {feature}</li>
+                  <li key={feature} className="flex gap-2">
+                    <span className="text-cyan-400">•</span>
+                    <span>{feature}</span>
+                  </li>
                 ))}
               </ul>
 
-              <Link
-                href={plan.href}
-                className="block text-center bg-cyan-500 hover:bg-cyan-400 text-black font-semibold py-3 rounded-xl"
-              >
-                {plan.cta}
-              </Link>
+              {plan.href.startsWith("mailto:") ? (
+                <a
+                  href={plan.href}
+                  className="mt-7 block rounded-xl bg-cyan-500 py-3 text-center font-semibold text-black hover:bg-cyan-400"
+                >
+                  {plan.cta}
+                </a>
+              ) : (
+                <Link
+                  href={plan.href}
+                  className="mt-7 block rounded-xl bg-cyan-500 py-3 text-center font-semibold text-black hover:bg-cyan-400"
+                >
+                  {plan.cta}
+                </Link>
+              )}
             </div>
           ))}
+        </div>
+
+        <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
+            Revenue Engine
+          </p>
+
+          <h2 className="mt-3 text-2xl font-bold">
+            One-time launch verification plus recurring trust monitoring
+          </h2>
+
+          <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-400">
+            Launch Pass gives fast-moving token founders a one-time trust entry
+            point, while Starter and Growth unlock ongoing monitoring, alerts,
+            and recurring transparency coverage.
+          </p>
         </div>
       </div>
     </main>

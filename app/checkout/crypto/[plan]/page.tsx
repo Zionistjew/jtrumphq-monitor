@@ -10,7 +10,7 @@ import {
   Transaction,
 } from "@solana/web3.js";
 
-type CheckoutPlan = "starter" | "growth";
+type CheckoutPlan = "launch-pass" | "starter" | "growth";
 
 type PaymentSession = {
   paymentId?: string;
@@ -24,7 +24,6 @@ type PaymentSession = {
   recipientWallet?: string;
   recipient?: string;
   expiresAt?: string;
-  expires_at?: string;
 };
 
 type PhantomProvider = {
@@ -37,6 +36,19 @@ type PhantomProvider = {
 };
 
 const PLAN_CONFIG = {
+  "launch-pass": {
+    label: "Launch Pass",
+    price: "$149 one-time",
+    description: "For fast token launches needing public trust verification.",
+    features: [
+      "Wallet verification",
+      "Trust badge",
+      "Public token listing",
+      "Liquidity disclosure",
+      "30-day trust visibility",
+      "No recurring billing",
+    ],
+  },
   starter: {
     label: "Starter",
     price: "$99/mo",
@@ -109,7 +121,9 @@ export default function CryptoPlanCheckoutPage({
   const normalizedPlan = params.plan?.toLowerCase();
 
   const plan =
-    normalizedPlan === "starter" || normalizedPlan === "growth"
+    normalizedPlan === "launch-pass" ||
+    normalizedPlan === "starter" ||
+    normalizedPlan === "growth"
       ? (normalizedPlan as CheckoutPlan)
       : null;
 
@@ -196,7 +210,9 @@ export default function CryptoPlanCheckoutPage({
         : await provider.connect();
 
       const fromPubkey = connected.publicKey;
-      setWallet(fromPubkey.toBase58());
+      const senderWallet = fromPubkey.toBase58();
+
+      setWallet(senderWallet);
 
       const recipient = getRecipient(payment);
       const lamports = getLamports(payment);
@@ -237,6 +253,8 @@ export default function CryptoPlanCheckoutPage({
         "confirmed"
       );
 
+      setStatus("Activating subscription...");
+
       const confirmRes = await fetch("/api/payments/confirm", {
         method: "POST",
         headers: {
@@ -245,7 +263,7 @@ export default function CryptoPlanCheckoutPage({
         body: JSON.stringify({
           paymentId,
           signature: result.signature,
-          walletAddress: fromPubkey.toBase58(),
+          senderWallet,
           plan,
         }),
       });
@@ -259,7 +277,9 @@ export default function CryptoPlanCheckoutPage({
         );
       }
 
-      setStatus("Payment confirmed. Subscription activation complete.");
+      setStatus("Payment confirmed. Redirecting to create your project...");
+
+      window.location.href = confirmData?.redirectTo || "/app/projects/new";
     } catch (err: any) {
       setError(err?.message || "Payment failed");
       setStatus("Payment failed");
@@ -273,7 +293,6 @@ export default function CryptoPlanCheckoutPage({
       <main className="min-h-screen bg-black px-6 py-12 text-white">
         <div className="mx-auto max-w-2xl rounded-3xl border border-red-500/40 bg-red-500/5 p-8">
           <h1 className="text-3xl font-bold">Invalid Plan</h1>
-
           <p className="mt-4 text-zinc-300">
             The selected checkout plan does not exist.
           </p>
@@ -291,12 +310,12 @@ export default function CryptoPlanCheckoutPage({
 
   return (
     <div className="flex min-h-screen bg-black text-white">
-      <aside className="hidden w-[310px] shrink-0 border-r border-white/10 bg-[#050816] xl:block">
-        <div className="flex min-h-screen flex-col px-6 py-8">
+      <aside className="hidden w-[280px] shrink-0 border-r border-white/10 bg-[#050816] xl:block">
+        <div className="flex min-h-screen flex-col px-5 py-7">
           <img
             src="https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png"
             alt="WEB3MB Logo"
-            className="h-24 w-auto object-contain"
+            className="h-20 w-auto object-contain"
           />
 
           <div className="mt-5 inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-cyan-300">
@@ -304,7 +323,7 @@ export default function CryptoPlanCheckoutPage({
           </div>
 
           <p className="mt-5 text-sm leading-7 text-zinc-400">
-            Activate your WEB3MB subscription using Phantom wallet payment.
+            Activate your WEB3MB plan using Phantom wallet payment.
           </p>
 
           <div className="mt-8 space-y-3">
@@ -342,9 +361,9 @@ export default function CryptoPlanCheckoutPage({
         </div>
       </aside>
 
-      <main className="flex-1 px-6 py-12">
-        <div className="mx-auto max-w-5xl rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl">
-          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+      <main className="flex-1 px-5 py-8 xl:px-8">
+        <div className="mx-auto max-w-4xl rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl xl:p-8">
+          <div className="flex flex-col gap-6">
             <div>
               <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">
                 WEB3MB Crypto Checkout
@@ -358,16 +377,9 @@ export default function CryptoPlanCheckoutPage({
                 {config.description}
               </p>
             </div>
-
-            <Link
-              href="/app/billing"
-              className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold hover:bg-white/15"
-            >
-              Back to Billing
-            </Link>
           </div>
 
-          <div className="mt-8 grid gap-6 md:grid-cols-[1fr_1.2fr]">
+          <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-6">
               <div className="text-sm uppercase tracking-[0.25em] text-cyan-300">
                 Selected Plan
@@ -404,9 +416,9 @@ export default function CryptoPlanCheckoutPage({
 
               <div className="mt-6 space-y-4 text-sm">
                 <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-zinc-500">Payment ID</div>
-                  <div className="mt-1 break-all font-semibold">
-                    {getPaymentId(payment) || "Creating..."}
+                  <div className="text-zinc-500">Payment Session</div>
+                  <div className="mt-1 font-semibold text-white">
+                    {getPaymentId(payment) ? "Active" : "Creating..."}
                   </div>
                 </div>
 
@@ -434,8 +446,8 @@ export default function CryptoPlanCheckoutPage({
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                   <div className="text-emerald-300">Secure Recipient</div>
                   <div className="mt-1 text-zinc-300">
-                    Payment destination is embedded securely inside the Phantom
-                    transaction and is not displayed publicly on this page.
+                    Payment destination is embedded inside the Phantom
+                    transaction and is not displayed publicly.
                   </div>
                 </div>
               </div>
