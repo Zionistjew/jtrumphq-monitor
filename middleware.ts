@@ -1,25 +1,32 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
-  const adminSession = request.cookies.get("admin_session")?.value;
+const PRIMARY_DOMAIN = "app.web3mb.com";
 
-  const isAdminRoute =
-    pathname.startsWith("/admin") && !pathname.startsWith("/admin/login");
+const VERCEL_DOMAINS = [
+  "web3mb-transparency-center.vercel.app",
+];
 
-  if (isAdminRoute && !adminSession) {
-    const loginUrl = new URL("/admin/login", request.url);
+export function middleware(req: NextRequest) {
+  const host = req.headers.get("host") || "";
+  const pathname = req.nextUrl.pathname;
 
-    const originalDestination = `${pathname}${search || ""}`;
-    loginUrl.searchParams.set("next", originalDestination);
+  const isLocalhost =
+    host.includes("localhost") ||
+    host.includes("127.0.0.1") ||
+    host.includes("0.0.0.0");
 
-    return NextResponse.redirect(loginUrl);
+  if (!isLocalhost && VERCEL_DOMAINS.includes(host)) {
+    const url = req.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = PRIMARY_DOMAIN;
+    return NextResponse.redirect(url, 308);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
+  ],
 };
