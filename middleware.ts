@@ -2,27 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 
 const PRIMARY_DOMAIN = "app.web3mb.com";
 
-const VERCEL_DOMAINS = [
-  "web3mb-transparency-center.vercel.app",
-];
+const VERCEL_DOMAINS = ["web3mb-transparency-center.vercel.app"];
 
 const protectedRoutes = [
-  "/app",
   "/app/projects",
   "/app/projects/new",
   "/app/alerts",
   "/app/verify-wallets",
 ];
 
-export async function middleware(req: NextRequest) {
+const publicAppRoutes = ["/app/billing"];
+
+export function middleware(req: NextRequest) {
   const host = req.headers.get("host") || "";
   const pathname = req.nextUrl.pathname;
 
   const isLocalhost =
     host.includes("localhost") ||
-    host.includes("127.0.0.1");
+    host.includes("127.0.0.1") ||
+    host.includes("0.0.0.0");
 
-  // Force custom production domain
   if (!isLocalhost && VERCEL_DOMAINS.includes(host)) {
     const url = req.nextUrl.clone();
     url.protocol = "https:";
@@ -30,49 +29,36 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
-  // Redirect legacy root
   if (pathname === "/") {
-    return NextResponse.redirect(
-      new URL("/app", req.url)
-    );
+    return NextResponse.redirect(new URL("/app", req.url));
   }
 
-  // Redirect old dashboard
   if (pathname === "/dashboard") {
-    return NextResponse.redirect(
-      new URL("/app", req.url)
-    );
+    return NextResponse.redirect(new URL("/app", req.url));
   }
 
-  // Protect old admin create project route
   if (pathname === "/admin/create-project") {
-    return NextResponse.redirect(
-      new URL("/admin/login", req.url)
-    );
+    return NextResponse.redirect(new URL("/admin/login", req.url));
   }
 
-  // Protected app routes
+  if (publicAppRoutes.some((route) => pathname.startsWith(route))) {
+    return NextResponse.next();
+  }
+
   const requiresProtection = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
   if (requiresProtection) {
-    const subscriptionStatus =
-      req.cookies.get("subscription_status")?.value;
-
-    const subscriptionEndsAt =
-      req.cookies.get("subscription_ends_at")?.value;
+    const subscriptionStatus = req.cookies.get("subscription_status")?.value;
+    const subscriptionEndsAt = req.cookies.get("subscription_ends_at")?.value;
 
     if (!subscriptionStatus) {
-      return NextResponse.redirect(
-        new URL("/app/billing", req.url)
-      );
+      return NextResponse.redirect(new URL("/app/billing", req.url));
     }
 
     if (subscriptionStatus !== "active") {
-      return NextResponse.redirect(
-        new URL("/app/billing?expired=true", req.url)
-      );
+      return NextResponse.redirect(new URL("/app/billing?expired=true", req.url));
     }
 
     if (subscriptionEndsAt) {
