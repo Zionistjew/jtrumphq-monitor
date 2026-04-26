@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -11,6 +12,8 @@ const supabase = createClient(
 
 function getProjectLimit(plan: string) {
   switch ((plan || "").toLowerCase()) {
+    case "launch-pass":
+      return 1;
     case "starter":
       return 1;
     case "growth":
@@ -18,12 +21,57 @@ function getProjectLimit(plan: string) {
     case "enterprise":
       return 999999;
     default:
-      return 1;
+      return 0;
   }
+}
+
+async function getActiveSubscription(session: {
+  userId: string;
+  walletAddress: string;
+  role: "admin" | "user";
+}) {
+  if (session.role === "admin") {
+    return {
+      plan: "enterprise",
+      status: "active",
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("status", "active")
+    .or(
+      `user_id.eq.${session.userId},wallet_address.eq.${session.walletAddress}`
+    )
+    .or(`ends_at.is.null,ends_at.gt.${nowIso}`)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }
 
 export async function GET() {
   try {
+    const session = await getSession();
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Authentication required",
+        },
+        { status: 401 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("projects")
       .select("*")
@@ -51,35 +99,50 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const session = await getSession();
 
-    const email = body.email || "verify@web3mb.com";
+    if (!session) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Payment required. Please choose a plan before creating a project.",
+          redirectTo: "/app/billing",
+        },
+        { status: 401 }
+      );
+    }
 
-    const { data: subscription, error: subError } = await supabase
-      .from("subscriptions")
-      .select("*")
-      .eq("email", email)
-      .eq("status", "active")
-      .maybeSingle();
-
-    if (subError) throw subError;
+    const subscription = await getActiveSubscription(session);
 
     if (!subscription) {
       return NextResponse.json(
         {
           ok: false,
-          error: "No active subscription found. Please choose a plan.",
+          error: "No active paid plan found. Please purchase a plan before creating a project.",
+          redirectTo: "/app/billing",
         },
         { status: 403 }
       );
     }
 
-    const projectLimit = getProjectLimit(subscription.plan);
+    const plan = String(subscription.plan || "").toLowerCase();
+    const projectLimit = getProjectLimit(plan);
+
+    if (projectLimit <= 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Invalid subscription plan. Please contact support.",
+          redirectTo: "/app/billing",
+        },
+        { status: 403 }
+      );
+    }
 
     const { count, error: countError } = await supabase
       .from("projects")
       .select("*", { count: "exact", head: true })
-      .eq("owner_email", email);
+      .eq("owner_email", session.walletAddress);
 
     if (countError) throw countError;
 
@@ -87,14 +150,17 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Project limit reached. Please upgrade your subscription plan.",
-          plan: subscription.plan,
+          error: "Project limit reached. Please upgrade your plan.",
+          plan,
           projectLimit,
           currentProjects: count || 0,
+          redirectTo: "/app/billing",
         },
         { status: 403 }
       );
     }
+
+    const body = await req.json();
 
     const { data, error } = await supabase
       .from("projects")
@@ -103,7 +169,7 @@ export async function POST(req: Request) {
         symbol: body.symbol,
         slug: body.slug,
         mint: body.mint,
-        owner_email: email,
+        owner_email: session.walletAddress,
         description: body.description || null,
       })
       .select()
@@ -114,7 +180,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       project: data,
-      plan: subscription.plan,
+      plan,
       projectLimit,
       currentProjects: (count || 0) + 1,
     });
