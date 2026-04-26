@@ -4,6 +4,7 @@ import { verifySolTransfer } from "@/lib/solana";
 import { setSessionCookie } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,10 +12,88 @@ const supabase = createClient(
 );
 
 const PLAN_DURATION: Record<string, number | null> = {
-  "launch-pass": 30,     // one-time plan = 30 days visibility
-  starter: 30,           // monthly
-  growth: 30,            // monthly
+  "launch-pass": 30,
+  starter: 30,
+  growth: 30,
+  enterprise: null,
 };
+
+function isTestModeEnabled() {
+  return process.env.WEB3MB_TEST_MODE === "true";
+}
+
+async function activateSubscription({
+  paymentId,
+  plan,
+  signature,
+  senderWallet,
+}: {
+  paymentId: string;
+  plan: string;
+  signature: string;
+  senderWallet: string;
+}) {
+  let { data: user } = await supabase
+    .from("users")
+    .select("*")
+    .eq("wallet_address", senderWallet)
+    .maybeSingle();
+
+  if (!user) {
+    const { data: newUser, error: userError } = await supabase
+      .from("users")
+      .insert({
+        wallet_address: senderWallet,
+        role: "user",
+      })
+      .select()
+      .single();
+
+    if (userError) throw userError;
+
+    user = newUser;
+  }
+
+  await supabase
+    .from("subscriptions")
+    .update({
+      status: "expired",
+    })
+    .eq("user_id", user.id)
+    .eq("status", "active");
+
+  const durationDays = PLAN_DURATION[plan] ?? 30;
+
+  const endsAt =
+    durationDays === null
+      ? null
+      : new Date(
+          Date.now() + durationDays * 24 * 60 * 60 * 1000
+        ).toISOString();
+
+  const { error: subscriptionError } = await supabase
+    .from("subscriptions")
+    .insert({
+      user_id: user.id,
+      wallet_address: senderWallet,
+      plan,
+      status: "active",
+      source_payment_id: paymentId,
+      tx_signature: signature,
+      starts_at: new Date().toISOString(),
+      ends_at: endsAt,
+    });
+
+  if (subscriptionError) throw subscriptionError;
+
+  await setSessionCookie({
+    userId: user.id,
+    walletAddress: user.wallet_address,
+    role: user.role,
+  });
+
+  return user;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,25 +102,24 @@ export async function POST(req: NextRequest) {
     const paymentId = String(body.paymentId || "");
     const signature = String(body.signature || "");
     const senderWallet = String(body.senderWallet || "");
+    const testMode = Boolean(body.testMode);
+    const testPassword = String(body.testPassword || "");
 
-    if (!paymentId || !signature || !senderWallet) {
+    if (!paymentId) {
       return NextResponse.json(
         {
           ok: false,
-          error: "paymentId, signature, and senderWallet are required",
+          error: "paymentId is required",
         },
         { status: 400 }
       );
     }
 
-    // -------------------------
-    // Fetch payment session
-    // -------------------------
     const { data: payment, error: paymentError } = await supabase
       .from("payment_sessions")
       .select("*")
       .eq("id", paymentId)
-      .single();
+      .maybeSingle();
 
     if (paymentError || !payment) {
       return NextResponse.json(
@@ -59,13 +137,13 @@ export async function POST(req: NextRequest) {
         unlocked: true,
         status: "confirmed",
         alreadyConfirmed: true,
+        redirectTo: "/app/projects/new",
       });
     }
 
-    const expired =
-      new Date(payment.expires_at).getTime() < Date.now();
+    const isExpired = new Date(payment.expires_at).getTime() < Date.now();
 
-    if (expired) {
+    if (isExpired) {
       await supabase
         .from("payment_sessions")
         .update({
@@ -82,9 +160,70 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // -------------------------
-    // Verify blockchain transfer
-    // -------------------------
+    if (testMode) {
+      if (!isTestModeEnabled()) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Test mode is not enabled.",
+          },
+          { status: 403 }
+        );
+      }
+
+      if (!process.env.ADMIN_PASSWORD || testPassword !== process.env.ADMIN_PASSWORD) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Invalid test mode password.",
+          },
+          { status: 403 }
+        );
+      }
+
+      const testSenderWallet =
+        senderWallet || `WEB3MB_TEST_${Date.now().toString()}`;
+
+      const testSignature = `test_${paymentId}_${Date.now()}`;
+
+      await supabase
+        .from("payment_sessions")
+        .update({
+          status: "confirmed",
+          sender_wallet: testSenderWallet,
+          tx_signature: testSignature,
+          confirmed_at: new Date().toISOString(),
+        })
+        .eq("id", paymentId);
+
+      const user = await activateSubscription({
+        paymentId,
+        plan: payment.plan,
+        signature: testSignature,
+        senderWallet: testSenderWallet,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        unlocked: true,
+        status: "confirmed",
+        testMode: true,
+        userId: user.id,
+        plan: payment.plan,
+        redirectTo: "/app/projects/new",
+      });
+    }
+
+    if (!signature || !senderWallet) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "paymentId, signature, and senderWallet are required",
+        },
+        { status: 400 }
+      );
+    }
+
     const verification = await verifySolTransfer({
       signature,
       senderWallet,
@@ -102,31 +241,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // -------------------------
-    // Create / find user
-    // -------------------------
-    let { data: user } = await supabase
-      .from("users")
-      .select("*")
-      .eq("wallet_address", senderWallet)
-      .single();
-
-    if (!user) {
-      const { data: newUser } = await supabase
-        .from("users")
-        .insert({
-          wallet_address: senderWallet,
-          role: "user",
-        })
-        .select()
-        .single();
-
-      user = newUser;
-    }
-
-    // -------------------------
-    // Mark payment confirmed
-    // -------------------------
     await supabase
       .from("payment_sessions")
       .update({
@@ -137,54 +251,19 @@ export async function POST(req: NextRequest) {
       })
       .eq("id", paymentId);
 
-    // -------------------------
-    // Expire old subscriptions
-    // -------------------------
-    await supabase
-      .from("subscriptions")
-      .update({
-        status: "expired",
-      })
-      .eq("user_id", user.id)
-      .eq("status", "active");
-
-    const durationDays = PLAN_DURATION[payment.plan];
-    let endsAt = null;
-
-    if (durationDays) {
-      endsAt = new Date(
-        Date.now() + durationDays * 24 * 60 * 60 * 1000
-      ).toISOString();
-    }
-
-    // -------------------------
-    // Create active subscription
-    // -------------------------
-    await supabase
-      .from("subscriptions")
-      .insert({
-        user_id: user.id,
-        plan: payment.plan,
-        status: "active",
-        source_payment_id: payment.id,
-        tx_signature: signature,
-        starts_at: new Date().toISOString(),
-        ends_at: endsAt,
-      });
-
-    // -------------------------
-    // Create login session
-    // -------------------------
-    await setSessionCookie({
-      userId: user.id,
-      walletAddress: user.wallet_address,
-      role: user.role,
+    const user = await activateSubscription({
+      paymentId,
+      plan: payment.plan,
+      signature,
+      senderWallet,
     });
 
     return NextResponse.json({
       ok: true,
       unlocked: true,
       status: "confirmed",
+      userId: user.id,
+      plan: payment.plan,
       redirectTo: "/app/projects/new",
     });
   } catch (error: any) {

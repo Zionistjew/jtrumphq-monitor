@@ -24,6 +24,7 @@ type PaymentSession = {
   recipientWallet?: string;
   recipient?: string;
   expiresAt?: string;
+  expires_at?: string;
 };
 
 type PhantomProvider = {
@@ -128,6 +129,8 @@ export default function CryptoPlanCheckoutPage({
       : null;
 
   const config = plan ? PLAN_CONFIG[plan] : null;
+  const testModeEnabled =
+    process.env.NEXT_PUBLIC_WEB3MB_TEST_MODE === "true";
 
   const [payment, setPayment] = useState<PaymentSession | null>(null);
   const [wallet, setWallet] = useState("");
@@ -135,6 +138,8 @@ export default function CryptoPlanCheckoutPage({
   const [error, setError] = useState("");
   const [signature, setSignature] = useState("");
   const [loading, setLoading] = useState(false);
+  const [testPassword, setTestPassword] = useState("");
+  const [testLoading, setTestLoading] = useState(false);
 
   const rpcUrl = useMemo(() => {
     return (
@@ -288,11 +293,62 @@ export default function CryptoPlanCheckoutPage({
     }
   }
 
+  async function activateTestMode() {
+    setError("");
+    setTestLoading(true);
+
+    try {
+      const paymentId = getPaymentId(payment);
+
+      if (!paymentId) {
+        throw new Error("Payment session is not ready yet.");
+      }
+
+      if (!testPassword.trim()) {
+        throw new Error("Enter the admin test password.");
+      }
+
+      setStatus("Activating test mode subscription...");
+
+      const confirmRes = await fetch("/api/payments/confirm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentId,
+          testMode: true,
+          testPassword,
+          senderWallet: "WEB3MB_TEST_ADMIN",
+          plan,
+        }),
+      });
+
+      const confirmData = await confirmRes.json().catch(() => null);
+
+      if (!confirmRes.ok || confirmData?.ok === false) {
+        throw new Error(
+          confirmData?.error || "Test mode activation failed."
+        );
+      }
+
+      setStatus("Test mode activated. Redirecting...");
+
+      window.location.href = confirmData?.redirectTo || "/app/projects/new";
+    } catch (err: any) {
+      setError(err?.message || "Test mode activation failed.");
+      setStatus("Test mode failed");
+    } finally {
+      setTestLoading(false);
+    }
+  }
+
   if (!config || !plan) {
     return (
       <main className="min-h-screen bg-black px-6 py-12 text-white">
         <div className="mx-auto max-w-2xl rounded-3xl border border-red-500/40 bg-red-500/5 p-8">
           <h1 className="text-3xl font-bold">Invalid Plan</h1>
+
           <p className="mt-4 text-zinc-300">
             The selected checkout plan does not exist.
           </p>
@@ -363,20 +419,18 @@ export default function CryptoPlanCheckoutPage({
 
       <main className="flex-1 px-5 py-8 xl:px-8">
         <div className="mx-auto max-w-4xl rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl xl:p-8">
-          <div className="flex flex-col gap-6">
-            <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">
-                WEB3MB Crypto Checkout
-              </p>
+          <div>
+            <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">
+              WEB3MB Crypto Checkout
+            </p>
 
-              <h1 className="mt-4 text-4xl font-bold">
-                Activate {config.label}
-              </h1>
+            <h1 className="mt-4 text-4xl font-bold">
+              Activate {config.label}
+            </h1>
 
-              <p className="mt-4 max-w-2xl text-zinc-400">
-                {config.description}
-              </p>
-            </div>
+            <p className="mt-4 max-w-2xl text-zinc-400">
+              {config.description}
+            </p>
           </div>
 
           <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
@@ -399,6 +453,18 @@ export default function CryptoPlanCheckoutPage({
                   </li>
                 ))}
               </ul>
+
+              {testModeEnabled ? (
+                <div className="mt-6 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+                  <div className="text-sm font-semibold text-yellow-300">
+                    Admin Test Mode
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-yellow-100/80">
+                    Use this only for internal testing. It activates access
+                    without sending SOL.
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
@@ -417,6 +483,7 @@ export default function CryptoPlanCheckoutPage({
               <div className="mt-6 space-y-4 text-sm">
                 <div className="rounded-xl border border-white/10 bg-black/30 p-4">
                   <div className="text-zinc-500">Payment Session</div>
+
                   <div className="mt-1 font-semibold text-white">
                     {getPaymentId(payment) ? "Active" : "Creating..."}
                   </div>
@@ -445,6 +512,7 @@ export default function CryptoPlanCheckoutPage({
 
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                   <div className="text-emerald-300">Secure Recipient</div>
+
                   <div className="mt-1 text-zinc-300">
                     Payment destination is embedded inside the Phantom
                     transaction and is not displayed publicly.
@@ -469,9 +537,42 @@ export default function CryptoPlanCheckoutPage({
                 </button>
               </div>
 
+              {testModeEnabled ? (
+                <div className="mt-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5">
+                  <div className="text-sm font-semibold text-yellow-300">
+                    Internal Test Unlock
+                  </div>
+
+                  <p className="mt-2 text-xs leading-5 text-yellow-100/80">
+                    Enter the admin password to simulate payment success and
+                    unlock project creation.
+                  </p>
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <input
+                      type="password"
+                      value={testPassword}
+                      onChange={(e) => setTestPassword(e.target.value)}
+                      className="flex-1 rounded-xl border border-yellow-500/30 bg-black px-4 py-3 text-sm text-white outline-none"
+                      placeholder="Admin test password"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={activateTestMode}
+                      disabled={testLoading || !payment}
+                      className="rounded-xl bg-yellow-400 px-5 py-3 font-semibold text-black hover:bg-yellow-300 disabled:opacity-50"
+                    >
+                      {testLoading ? "Activating..." : "Test Unlock"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               {wallet ? (
                 <div className="mt-5 rounded-xl border border-white/10 bg-black/30 p-4 text-sm">
                   <div className="text-zinc-500">Connected Wallet</div>
+
                   <div className="mt-1 break-all font-semibold">
                     {maskWallet(wallet)}
                   </div>
@@ -481,6 +582,7 @@ export default function CryptoPlanCheckoutPage({
               {signature ? (
                 <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
                   <div className="text-emerald-300">Transaction Signature</div>
+
                   <div className="mt-1 break-all font-semibold">
                     {signature}
                   </div>
