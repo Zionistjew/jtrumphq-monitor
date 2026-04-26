@@ -2,16 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 const PRIMARY_DOMAIN = "app.web3mb.com";
 
-const VERCEL_DOMAINS = ["web3mb-transparency-center.vercel.app"];
-
-const protectedRoutes = [
-  "/app/projects",
-  "/app/projects/new",
-  "/app/alerts",
-  "/app/verify-wallets",
+const VERCEL_DOMAINS = [
+  "web3mb-transparency-center.vercel.app",
 ];
 
-const publicAppRoutes = ["/app/billing"];
+// ONLY lock actual project creation
+const protectedRoutes = [
+  "/app/projects/new",
+];
+
+// Billing must always stay public
+const publicAppRoutes = [
+  "/app/billing",
+];
 
 export function middleware(req: NextRequest) {
   const host = req.headers.get("host") || "";
@@ -22,6 +25,7 @@ export function middleware(req: NextRequest) {
     host.includes("127.0.0.1") ||
     host.includes("0.0.0.0");
 
+  // Force custom production domain
   if (!isLocalhost && VERCEL_DOMAINS.includes(host)) {
     const url = req.nextUrl.clone();
     url.protocol = "https:";
@@ -29,36 +33,58 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
+  // Redirect old root
   if (pathname === "/") {
-    return NextResponse.redirect(new URL("/app", req.url));
+    return NextResponse.redirect(
+      new URL("/app", req.url)
+    );
   }
 
+  // Redirect old dashboard route
   if (pathname === "/dashboard") {
-    return NextResponse.redirect(new URL("/app", req.url));
+    return NextResponse.redirect(
+      new URL("/app", req.url)
+    );
   }
 
+  // Redirect old admin route
   if (pathname === "/admin/create-project") {
-    return NextResponse.redirect(new URL("/admin/login", req.url));
+    return NextResponse.redirect(
+      new URL("/admin/login", req.url)
+    );
   }
 
-  if (publicAppRoutes.some((route) => pathname.startsWith(route))) {
+  // Billing always accessible
+  if (
+    publicAppRoutes.some((route) =>
+      pathname.startsWith(route)
+    )
+  ) {
     return NextResponse.next();
   }
 
+  // Only protect project creation
   const requiresProtection = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
   if (requiresProtection) {
-    const subscriptionStatus = req.cookies.get("subscription_status")?.value;
-    const subscriptionEndsAt = req.cookies.get("subscription_ends_at")?.value;
+    const subscriptionStatus =
+      req.cookies.get("subscription_status")?.value;
+
+    const subscriptionEndsAt =
+      req.cookies.get("subscription_ends_at")?.value;
 
     if (!subscriptionStatus) {
-      return NextResponse.redirect(new URL("/app/billing", req.url));
+      return NextResponse.redirect(
+        new URL("/app/billing", req.url)
+      );
     }
 
     if (subscriptionStatus !== "active") {
-      return NextResponse.redirect(new URL("/app/billing?expired=true", req.url));
+      return NextResponse.redirect(
+        new URL("/app/billing?expired=true", req.url)
+      );
     }
 
     if (subscriptionEndsAt) {
