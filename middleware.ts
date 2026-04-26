@@ -6,7 +6,15 @@ const VERCEL_DOMAINS = [
   "web3mb-transparency-center.vercel.app",
 ];
 
-export function middleware(req: NextRequest) {
+const protectedRoutes = [
+  "/app",
+  "/app/projects",
+  "/app/projects/new",
+  "/app/alerts",
+  "/app/verify-wallets",
+];
+
+export async function middleware(req: NextRequest) {
   const host = req.headers.get("host") || "";
   const pathname = req.nextUrl.pathname;
 
@@ -14,7 +22,7 @@ export function middleware(req: NextRequest) {
     host.includes("localhost") ||
     host.includes("127.0.0.1");
 
-  // Force production domain
+  // Force custom production domain
   if (!isLocalhost && VERCEL_DOMAINS.includes(host)) {
     const url = req.nextUrl.clone();
     url.protocol = "https:";
@@ -22,25 +30,67 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
-  // Redirect root homepage
+  // Redirect legacy root
   if (pathname === "/") {
     return NextResponse.redirect(
       new URL("/app", req.url)
     );
   }
 
-  // Redirect legacy dashboard
+  // Redirect old dashboard
   if (pathname === "/dashboard") {
     return NextResponse.redirect(
       new URL("/app", req.url)
     );
   }
 
-  // Protect legacy admin create-project route
+  // Protect old admin create project route
   if (pathname === "/admin/create-project") {
     return NextResponse.redirect(
       new URL("/admin/login", req.url)
     );
+  }
+
+  // Protected app routes
+  const requiresProtection = protectedRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+
+  if (requiresProtection) {
+    const subscriptionStatus =
+      req.cookies.get("subscription_status")?.value;
+
+    const subscriptionEndsAt =
+      req.cookies.get("subscription_ends_at")?.value;
+
+    if (!subscriptionStatus) {
+      return NextResponse.redirect(
+        new URL("/app/billing", req.url)
+      );
+    }
+
+    if (subscriptionStatus !== "active") {
+      return NextResponse.redirect(
+        new URL("/app/billing?expired=true", req.url)
+      );
+    }
+
+    if (subscriptionEndsAt) {
+      const expirationDate = new Date(subscriptionEndsAt);
+      const now = new Date();
+
+      if (now > expirationDate) {
+        const response = NextResponse.redirect(
+          new URL("/app/billing?expired=true", req.url)
+        );
+
+        response.cookies.delete("subscription_status");
+        response.cookies.delete("subscription_plan");
+        response.cookies.delete("subscription_ends_at");
+
+        return response;
+      }
+    }
   }
 
   return NextResponse.next();
