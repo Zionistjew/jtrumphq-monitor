@@ -115,7 +115,13 @@ export default function ProjectCreationForm() {
         throw new Error(data?.error || "Failed to create project");
       }
 
-      router.push(`/app/projects/${data.project.id}`);
+      const slug = data?.project?.slug;
+
+      if (!slug) {
+        throw new Error("Project created, but no public slug was returned.");
+      }
+
+      router.push(`/token/${slug}`);
     } catch (err: any) {
       setError(err?.message || "Project creation failed");
     } finally {
@@ -282,7 +288,9 @@ export default function ProjectCreationForm() {
               disabled={loading}
               className="rounded-xl bg-cyan-500 py-4 font-semibold text-black hover:bg-cyan-400 disabled:opacity-50"
             >
-              {loading ? "Creating Project..." : "Create Trust Dashboard"}
+              {loading
+                ? "Creating Trust Dashboard..."
+                : "Create Trust Dashboard"}
             </button>
           </div>
         </form>
