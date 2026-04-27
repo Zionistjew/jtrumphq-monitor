@@ -1,10 +1,11 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
 
-const COOKIE_NAME = "jtrumphq_session";
+export const COOKIE_NAME = "jtrumphq_session";
+
 const SECRET = process.env.APP_SESSION_SECRET || "change-me";
 
-type SessionPayload = {
+export type SessionPayload = {
   userId: string;
   walletAddress: string;
   role: "admin" | "user";
@@ -19,6 +20,16 @@ function base64url(input: string | Buffer) {
     .replace(/\//g, "_");
 }
 
+function fromBase64url(input: string) {
+  let value = input.replace(/-/g, "+").replace(/_/g, "/");
+
+  while (value.length % 4) {
+    value += "=";
+  }
+
+  return Buffer.from(value, "base64").toString("utf-8");
+}
+
 function sign(value: string) {
   return base64url(
     crypto.createHmac("sha256", SECRET).update(value).digest()
@@ -28,22 +39,29 @@ function sign(value: string) {
 export function createSessionToken(payload: SessionPayload) {
   const encoded = base64url(JSON.stringify(payload));
   const signature = sign(encoded);
+
   return `${encoded}.${signature}`;
 }
 
 export function verifySessionToken(token: string): SessionPayload | null {
   const [encoded, signature] = token.split(".");
+
   if (!encoded || !signature) return null;
 
   const expected = sign(encoded);
+
   if (signature !== expected) return null;
 
   try {
-    const payload = JSON.parse(
-      Buffer.from(encoded, "base64").toString("utf-8")
-    ) as SessionPayload;
+    const payload = JSON.parse(fromBase64url(encoded)) as SessionPayload;
+
+    if (!payload?.userId) return null;
+    if (!payload?.walletAddress) return null;
+    if (!payload?.role) return null;
+    if (!payload?.exp) return null;
 
     if (payload.exp < Date.now()) return null;
+
     return payload;
   } catch {
     return null;
@@ -56,6 +74,7 @@ export async function setSessionCookie(payload: {
   role: "admin" | "user";
 }) {
   const cookieStore = await cookies();
+
   const token = createSessionToken({
     ...payload,
     exp: Date.now() + 1000 * 60 * 60 * 24 * 30,
@@ -64,7 +83,7 @@ export async function setSessionCookie(payload: {
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
@@ -72,10 +91,11 @@ export async function setSessionCookie(payload: {
 
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
+
   cookieStore.set(COOKIE_NAME, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 0,
   });
@@ -84,6 +104,8 @@ export async function clearSessionCookie() {
 export async function getSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
+
   if (!token) return null;
+
   return verifySessionToken(token);
 }
