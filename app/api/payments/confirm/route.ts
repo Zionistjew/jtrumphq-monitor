@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifySolTransfer } from "@/lib/solana";
-import { setSessionCookie } from "@/lib/session";
+import { createSessionToken } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+const COOKIE_NAME = "jtrumphq_session";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,6 +24,32 @@ function isTestModeEnabled() {
   return process.env.WEB3MB_TEST_MODE === "true";
 }
 
+function jsonWithSession(
+  body: any,
+  session: {
+    userId: string;
+    walletAddress: string;
+    role: "admin" | "user";
+  }
+) {
+  const token = createSessionToken({
+    ...session,
+    exp: Date.now() + 1000 * 60 * 60 * 24 * 30,
+  });
+
+  const response = NextResponse.json(body);
+
+  response.cookies.set(COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: true,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+
+  return response;
+}
+
 async function activateSubscription({
   paymentId,
   plan,
@@ -33,14 +61,16 @@ async function activateSubscription({
   signature: string;
   senderWallet: string;
 }) {
-  let { data: user } = await supabase
+  let { data: user, error: userLookupError } = await supabase
     .from("users")
     .select("*")
     .eq("wallet_address", senderWallet)
     .maybeSingle();
 
+  if (userLookupError) throw userLookupError;
+
   if (!user) {
-    const { data: newUser, error: userError } = await supabase
+    const { data: newUser, error: userCreateError } = await supabase
       .from("users")
       .insert({
         wallet_address: senderWallet,
@@ -49,7 +79,7 @@ async function activateSubscription({
       .select()
       .single();
 
-    if (userError) throw userError;
+    if (userCreateError) throw userCreateError;
 
     user = newUser;
   }
@@ -86,12 +116,6 @@ async function activateSubscription({
 
   if (subscriptionError) throw subscriptionError;
 
-  await setSessionCookie({
-    userId: user.id,
-    walletAddress: user.wallet_address,
-    role: user.role,
-  });
-
   return user;
 }
 
@@ -107,10 +131,7 @@ export async function POST(req: NextRequest) {
 
     if (!paymentId) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "paymentId is required",
-        },
+        { ok: false, error: "paymentId is required" },
         { status: 400 }
       );
     }
@@ -123,15 +144,38 @@ export async function POST(req: NextRequest) {
 
     if (paymentError || !payment) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "Payment session not found",
-        },
+        { ok: false, error: "Payment session not found" },
         { status: 404 }
       );
     }
 
     if (payment.status === "confirmed") {
+      const existingWallet =
+        payment.sender_wallet || senderWallet || "WEB3MB_TEST_ADMIN";
+
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("*")
+        .eq("wallet_address", existingWallet)
+        .maybeSingle();
+
+      if (existingUser) {
+        return jsonWithSession(
+          {
+            ok: true,
+            unlocked: true,
+            status: "confirmed",
+            alreadyConfirmed: true,
+            redirectTo: "/app/projects/new",
+          },
+          {
+            userId: existingUser.id,
+            walletAddress: existingUser.wallet_address,
+            role: existingUser.role || "user",
+          }
+        );
+      }
+
       return NextResponse.json({
         ok: true,
         unlocked: true,
@@ -146,16 +190,11 @@ export async function POST(req: NextRequest) {
     if (isExpired) {
       await supabase
         .from("payment_sessions")
-        .update({
-          status: "expired",
-        })
+        .update({ status: "expired" })
         .eq("id", paymentId);
 
       return NextResponse.json(
-        {
-          ok: false,
-          error: "Payment session expired",
-        },
+        { ok: false, error: "Payment session expired" },
         { status: 400 }
       );
     }
@@ -163,27 +202,22 @@ export async function POST(req: NextRequest) {
     if (testMode) {
       if (!isTestModeEnabled()) {
         return NextResponse.json(
-          {
-            ok: false,
-            error: "Test mode is not enabled.",
-          },
+          { ok: false, error: "Test mode is not enabled." },
           { status: 403 }
         );
       }
 
-      if (!process.env.ADMIN_PASSWORD || testPassword !== process.env.ADMIN_PASSWORD) {
+      if (
+        !process.env.ADMIN_PASSWORD ||
+        testPassword !== process.env.ADMIN_PASSWORD
+      ) {
         return NextResponse.json(
-          {
-            ok: false,
-            error: "Invalid test mode password.",
-          },
+          { ok: false, error: "Invalid test mode password." },
           { status: 403 }
         );
       }
 
-      const testSenderWallet =
-        senderWallet || `WEB3MB_TEST_${Date.now().toString()}`;
-
+      const testSenderWallet = senderWallet || "WEB3MB_TEST_ADMIN";
       const testSignature = `test_${paymentId}_${Date.now()}`;
 
       await supabase
@@ -203,15 +237,22 @@ export async function POST(req: NextRequest) {
         senderWallet: testSenderWallet,
       });
 
-      return NextResponse.json({
-        ok: true,
-        unlocked: true,
-        status: "confirmed",
-        testMode: true,
-        userId: user.id,
-        plan: payment.plan,
-        redirectTo: "/app/projects/new",
-      });
+      return jsonWithSession(
+        {
+          ok: true,
+          unlocked: true,
+          status: "confirmed",
+          testMode: true,
+          userId: user.id,
+          plan: payment.plan,
+          redirectTo: "/app/projects/new",
+        },
+        {
+          userId: user.id,
+          walletAddress: user.wallet_address,
+          role: user.role || "user",
+        }
+      );
     }
 
     if (!signature || !senderWallet) {
@@ -258,14 +299,21 @@ export async function POST(req: NextRequest) {
       senderWallet,
     });
 
-    return NextResponse.json({
-      ok: true,
-      unlocked: true,
-      status: "confirmed",
-      userId: user.id,
-      plan: payment.plan,
-      redirectTo: "/app/projects/new",
-    });
+    return jsonWithSession(
+      {
+        ok: true,
+        unlocked: true,
+        status: "confirmed",
+        userId: user.id,
+        plan: payment.plan,
+        redirectTo: "/app/projects/new",
+      },
+      {
+        userId: user.id,
+        walletAddress: user.wallet_address,
+        role: user.role || "user",
+      }
+    );
   } catch (error: any) {
     console.error("payment confirm error", error);
 
