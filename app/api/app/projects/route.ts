@@ -337,15 +337,15 @@ export async function POST(req: Request) {
       projectLimit,
       currentProjects: (count || 0) + 1,
     });
-  } catch (error: any) {
-    console.error("POST /api/app/projects error:", error);
+catch (error: any) {
+  console.error("POST /api/app/projects error FULL:", error);
 
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error?.message || "Failed to create project",
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    {
+      ok: false,
+      error: error?.message || "Failed to create project",
+      details: error,
+    },
+    { status: 500 }
+  );
 }
