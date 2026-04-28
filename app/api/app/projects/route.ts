@@ -72,20 +72,9 @@ async function getTokenMetadata(mint: string) {
     const data = await response.json().catch(() => null);
     const result = data?.result;
 
-    const name =
-      result?.content?.metadata?.name ||
-      result?.content?.json_uri?.name ||
-      result?.token_info?.name ||
-      "";
-
-    const symbol =
-      result?.content?.metadata?.symbol ||
-      result?.token_info?.symbol ||
-      "";
-
-    const description =
-      result?.content?.metadata?.description ||
-      "";
+    const name = result?.content?.metadata?.name || "";
+    const symbol = result?.content?.metadata?.symbol || "";
+    const description = result?.content?.metadata?.description || "";
 
     const slugBase = name || symbol || `token-${mint.slice(0, 6)}`;
 
@@ -300,9 +289,7 @@ export async function POST(req: Request) {
       `Token ${mint.slice(0, 6)}`;
 
     const symbol =
-      String(body.symbol || "").trim() ||
-      metadata.symbol ||
-      "TOKEN";
+      String(body.symbol || "").trim() || metadata.symbol || "TOKEN";
 
     const slug =
       String(body.slug || "").trim() ||
@@ -337,15 +324,21 @@ export async function POST(req: Request) {
       projectLimit,
       currentProjects: (count || 0) + 1,
     });
-catch (error: any) {
-  console.error("POST /api/app/projects error FULL:", error);
+  } catch (error: any) {
+    console.error("POST /api/app/projects error FULL:", error);
 
-  return NextResponse.json(
-    {
-      ok: false,
-      error: error?.message || "Failed to create project",
-      details: error,
-    },
-    { status: 500 }
-  );
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error?.message || "Failed to create project",
+        details: {
+          code: error?.code || null,
+          message: error?.message || null,
+          details: error?.details || null,
+          hint: error?.hint || null,
+        },
+      },
+      { status: 500 }
+    );
+  }
 }
