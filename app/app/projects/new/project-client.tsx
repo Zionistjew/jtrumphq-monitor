@@ -14,6 +14,23 @@ type Metadata = {
   source: string;
 };
 
+function formatApiError(data: any) {
+  const main = data?.error || "Failed to create project";
+
+  const details = data?.details
+    ? [
+        data.details.code ? `Code: ${data.details.code}` : "",
+        data.details.message ? `Message: ${data.details.message}` : "",
+        data.details.details ? `Details: ${data.details.details}` : "",
+        data.details.hint ? `Hint: ${data.details.hint}` : "",
+      ]
+        .filter(Boolean)
+        .join(" | ")
+    : "";
+
+  return details ? `${main} — ${details}` : main;
+}
+
 export default function ProjectCreationForm() {
   const router = useRouter();
 
@@ -62,7 +79,7 @@ export default function ProjectCreationForm() {
       const data = await res.json();
 
       if (!res.ok || data?.ok === false) {
-        throw new Error(data?.error || "Failed to lookup token metadata.");
+        throw new Error(formatApiError(data));
       }
 
       const meta = data.metadata as Metadata;
@@ -104,7 +121,7 @@ export default function ProjectCreationForm() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok || data?.ok === false) {
         if (data?.redirectTo) {
@@ -112,7 +129,7 @@ export default function ProjectCreationForm() {
           return;
         }
 
-        throw new Error(data?.error || "Failed to create project");
+        throw new Error(formatApiError(data));
       }
 
       const slug = data?.project?.slug;
@@ -123,7 +140,7 @@ export default function ProjectCreationForm() {
 
       router.push(`/token/${slug}`);
     } catch (err: any) {
-      setError(err?.message || "Project creation failed");
+      setError(err?.message || "Project creation failed.");
     } finally {
       setLoading(false);
     }
@@ -149,7 +166,7 @@ export default function ProjectCreationForm() {
         </div>
 
         {error ? (
-          <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
+          <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm leading-6 text-red-200">
             {error}
           </div>
         ) : null}
