@@ -178,10 +178,16 @@ export async function GET(req: Request) {
       );
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("projects")
       .select("*")
       .order("created_at", { ascending: false });
+
+    if (session.role !== "admin") {
+      query = query.eq("user_id", session.userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -197,6 +203,12 @@ export async function GET(req: Request) {
       {
         ok: false,
         error: error?.message || "Failed to load projects",
+        details: {
+          code: error?.code || null,
+          message: error?.message || null,
+          details: error?.details || null,
+          hint: error?.hint || null,
+        },
       },
       { status: 500 }
     );
@@ -250,7 +262,7 @@ export async function POST(req: Request) {
     const { count, error: countError } = await supabase
       .from("projects")
       .select("*", { count: "exact", head: true })
-      .eq("owner_email", session.walletAddress);
+      .eq("user_id", session.userId);
 
     if (countError) throw countError;
 
@@ -292,7 +304,7 @@ export async function POST(req: Request) {
       String(body.symbol || "").trim() || metadata.symbol || "TOKEN";
 
     const slug =
-      String(body.slug || "").trim() ||
+      slugify(String(body.slug || "").trim()) ||
       metadata.slug ||
       slugify(`${symbol}-${mint.slice(0, 6)}`);
 
@@ -304,12 +316,17 @@ export async function POST(req: Request) {
     const { data, error } = await supabase
       .from("projects")
       .insert({
+        slug,
         name,
         symbol,
-        slug,
         mint,
-        owner_email: session.walletAddress,
         description,
+        user_id: session.userId,
+        theme: {
+          primary: "cyan",
+          accent: "zinc",
+        },
+        wallets: [],
       })
       .select()
       .single();
