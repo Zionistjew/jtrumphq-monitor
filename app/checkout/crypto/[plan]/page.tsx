@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function CryptoCheckoutPage() {
   const [wallet, setWallet] = useState<string | null>(null);
@@ -10,7 +10,8 @@ export default function CryptoCheckoutPage() {
   const connectPhantom = async () => {
     try {
       const provider = (window as any).solana;
-      if (!provider) {
+
+      if (!provider || !provider.isPhantom) {
         alert("Phantom wallet not found");
         return;
       }
@@ -26,10 +27,10 @@ export default function CryptoCheckoutPage() {
     setLoading(true);
 
     try {
-      // 🔥 Replace this with your real payment logic
+      // 🔥 REAL PAYMENT LOGIC HOOK (replace later)
       await new Promise((r) => setTimeout(r, 2000));
 
-      setSignature("SIMULATED_SIGNATURE_123");
+      setSignature("TEMP_SIGNATURE_REMOVE_AFTER_REAL_PAYMENT");
     } catch (err) {
       console.error(err);
     }
