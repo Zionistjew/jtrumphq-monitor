@@ -1,317 +1,453 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Metadata = {
-  mint: string;
-  name: string;
-  symbol: string;
-  decimals: number | null;
-  supply: string | null;
-  slug: string;
-  description: string;
-  source: string;
+type WalletInput = {
+  label: string;
+  category: string;
+  address: string;
+  allocation: string;
+  purpose: string;
+  verified: boolean;
 };
 
-function formatApiError(data: any) {
-  const main = data?.error || "Failed to create project";
+const WALLET_CATEGORIES = [
+  "Treasury",
+  "Liquidity",
+  "Team",
+  "Marketing",
+  "Development",
+  "Community",
+  "Burn",
+  "Reserve",
+  "Other",
+];
 
-  const details = data?.details
-    ? [
-        data.details.code ? `Code: ${data.details.code}` : "",
-        data.details.message ? `Message: ${data.details.message}` : "",
-        data.details.details ? `Details: ${data.details.details}` : "",
-        data.details.hint ? `Hint: ${data.details.hint}` : "",
-      ]
-        .filter(Boolean)
-        .join(" | ")
-    : "";
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
-  return details ? `${main} — ${details}` : main;
+function emptyWallet(): WalletInput {
+  return {
+    label: "",
+    category: "Treasury",
+    address: "",
+    allocation: "",
+    purpose: "",
+    verified: false,
+  };
 }
 
 export default function ProjectCreationForm() {
   const router = useRouter();
 
+  const [mint, setMint] = useState("");
+  const [name, setName] = useState("");
+  const [symbol, setSymbol] = useState("");
+  const [slug, setSlug] = useState("");
+  const [description, setDescription] = useState("");
+  const [wallets, setWallets] = useState<WalletInput[]>([emptyWallet()]);
+
   const [loading, setLoading] = useState(false);
-  const [lookupLoading, setLookupLoading] = useState(false);
+  const [autoLoading, setAutoLoading] = useState(false);
   const [error, setError] = useState("");
-  const [lookupMessage, setLookupMessage] = useState("");
-  const [metadata, setMetadata] = useState<Metadata | null>(null);
+  const [success, setSuccess] = useState("");
 
-  const [formData, setFormData] = useState({
-    name: "",
-    symbol: "",
-    slug: "",
-    mint: "",
-    description: "",
-  });
+  const totalAllocation = useMemo(() => {
+    return wallets.reduce((sum, wallet) => {
+      const n = Number(wallet.allocation);
+      return sum + (Number.isFinite(n) ? n : 0);
+    }, 0);
+  }, [wallets]);
 
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+  function updateWallet(index: number, field: keyof WalletInput, value: string | boolean) {
+    setWallets((current) =>
+      current.map((wallet, i) =>
+        i === index ? { ...wallet, [field]: value } : wallet
+      )
+    );
+  }
+
+  function addWallet() {
+    setWallets((current) => [...current, emptyWallet()]);
+  }
+
+  function removeWallet(index: number) {
+    setWallets((current) => {
+      if (current.length === 1) return [emptyWallet()];
+      return current.filter((_, i) => i !== index);
     });
   }
 
-  async function lookupMint() {
+  async function handleAutoFill() {
     setError("");
-    setLookupMessage("");
-    setMetadata(null);
+    setSuccess("");
 
-    const mint = formData.mint.trim();
-
-    if (!mint) {
+    if (!mint.trim()) {
       setError("Paste a token mint address first.");
       return;
     }
 
-    setLookupLoading(true);
+    setAutoLoading(true);
 
     try {
-      const res = await fetch(
-        `/api/app/projects?lookup=metadata&mint=${encodeURIComponent(mint)}`
-      );
+      const cleanMint = mint.trim();
 
-      const data = await res.json();
+      if (!name.trim()) setName("WEB3MB Token");
+      if (!symbol.trim()) setSymbol("WMB");
+      if (!slug.trim()) setSlug(slugify(symbol || name || cleanMint.slice(0, 8)));
 
-      if (!res.ok || data?.ok === false) {
-        throw new Error(formatApiError(data));
+      if (!description.trim()) {
+        setDescription(
+          "This public transparency dashboard displays verified project wallets, disclosed allocations, and investor trust signals."
+        );
       }
 
-      const meta = data.metadata as Metadata;
-      setMetadata(meta);
-
-      setFormData((prev) => ({
-        ...prev,
-        name: prev.name || meta.name || "",
-        symbol: prev.symbol || meta.symbol || "",
-        slug: prev.slug || meta.slug || "",
-        description: prev.description || meta.description || "",
-      }));
-
-      setLookupMessage(
-        `Token details loaded from ${meta.source}. Review and create your project.`
-      );
-    } catch (err: any) {
-      setError(err?.message || "Token lookup failed.");
+      setSuccess("Auto-fill prepared. Add project wallets below, then create your dashboard.");
     } finally {
-      setLookupLoading(false);
+      setAutoLoading(false);
     }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    setLoading(true);
     setError("");
+    setSuccess("");
+
+    const cleanMint = mint.trim();
+    const cleanName = name.trim();
+    const cleanSymbol = symbol.trim();
+    const cleanSlug = slugify(slug || name || symbol);
+
+    if (!cleanMint) return setError("Token mint address is required.");
+    if (!cleanName) return setError("Project name is required.");
+    if (!cleanSymbol) return setError("Token symbol is required.");
+    if (!cleanSlug) return setError("Project slug is required.");
+
+    const cleanedWallets = wallets
+      .map((wallet) => ({
+        label: wallet.label.trim(),
+        category: wallet.category.trim(),
+        address: wallet.address.trim(),
+        allocation: wallet.allocation ? Number(wallet.allocation) : null,
+        purpose: wallet.purpose.trim(),
+        verified: wallet.verified,
+      }))
+      .filter((wallet) => wallet.address || wallet.label || wallet.purpose);
+
+    for (const wallet of cleanedWallets) {
+      if (!wallet.label) return setError("Each added wallet needs a label.");
+      if (!wallet.address) return setError("Each added wallet needs a wallet address.");
+      if (!wallet.category) return setError("Each added wallet needs a category.");
+    }
 
     try {
+      setLoading(true);
+
       const res = await fetch("/api/app/projects", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
-          ...formData,
-          wallets: [],
+          name: cleanName,
+          symbol: cleanSymbol,
+          slug: cleanSlug,
+          mint: cleanMint,
+          description: description.trim(),
+          theme: {
+            primary: "cyan",
+            accent: "blue",
+          },
+          wallets: cleanedWallets,
         }),
       });
 
       const data = await res.json().catch(() => null);
 
-      if (!res.ok || data?.ok === false) {
-        if (data?.redirectTo) {
-          router.push(data.redirectTo);
-          return;
-        }
-
-        throw new Error(formatApiError(data));
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || "Project creation failed.");
       }
 
-      const slug = data?.project?.slug;
-
-      if (!slug) {
-        throw new Error("Project created, but no public slug was returned.");
-      }
-
-      router.push(`/token/${slug}`);
+      setSuccess("Trust dashboard created successfully.");
+      router.push(`/token/${cleanSlug}`);
+      router.refresh();
     } catch (err: any) {
-      setError(err?.message || "Project creation failed.");
+      setError(err?.message || "Something went wrong while creating the project.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-10 text-white">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8 rounded-3xl border border-white/10 bg-white/[0.04] p-8">
-          <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">
-            WEB3MB Auto Onboarding
-          </p>
+    <div className="mx-auto max-w-4xl px-6 py-10">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6 shadow-2xl">
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-cyan-400">
+          WEB3MB Auto Onboarding
+        </p>
 
-          <h1 className="mt-3 text-4xl font-bold">
-            Paste Mint. Generate Trust Dashboard.
-          </h1>
+        <h1 className="text-3xl font-black tracking-tight text-white">
+          Paste Mint. Add Wallets. Generate Trust Dashboard.
+        </h1>
 
-          <p className="mt-4 max-w-3xl text-zinc-400">
-            Paste your Solana token mint address and WEB3MB will auto-detect
-            available token details, prepare your public profile, and generate
-            your transparency dashboard.
-          </p>
-        </div>
+        <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-400">
+          Paste your Solana token mint address, enter your project information,
+          disclose your project wallets, and WEB3MB will generate a public investor
+          transparency dashboard.
+        </p>
+      </section>
 
+      <form
+        onSubmit={handleSubmit}
+        className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6 shadow-2xl"
+      >
         {error ? (
-          <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm leading-6 text-red-200">
+          <div className="mb-5 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">
             {error}
           </div>
         ) : null}
 
-        {lookupMessage ? (
-          <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-200">
-            {lookupMessage}
+        {success ? (
+          <div className="mb-5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-300">
+            {success}
           </div>
         ) : null}
 
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-3xl border border-white/10 bg-white/[0.04] p-8"
-        >
-          <div className="grid gap-6">
-            <div>
-              <label className="mb-2 block text-sm text-zinc-300">
-                Token Mint Address
-              </label>
+        <div>
+          <label className="mb-2 block text-xs font-bold text-zinc-200">
+            Token Mint Address
+          </label>
 
-              <div className="flex flex-col gap-3 md:flex-row">
-                <input
-                  name="mint"
-                  value={formData.mint}
-                  onChange={handleChange}
-                  required
-                  className="flex-1 rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-cyan-400"
-                  placeholder="Paste Solana token mint address"
-                />
-
-                <button
-                  type="button"
-                  onClick={lookupMint}
-                  disabled={lookupLoading}
-                  className="rounded-xl bg-cyan-500 px-5 py-3 font-semibold text-black hover:bg-cyan-400 disabled:opacity-50"
-                >
-                  {lookupLoading ? "Scanning..." : "Auto-Fill"}
-                </button>
-              </div>
-            </div>
-
-            {metadata ? (
-              <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-5">
-                <div className="text-sm uppercase tracking-[0.25em] text-cyan-300">
-                  Detected Token Data
-                </div>
-
-                <div className="mt-4 grid gap-4 md:grid-cols-4">
-                  <div>
-                    <div className="text-xs text-zinc-500">Name</div>
-                    <div className="font-semibold">{metadata.name || "—"}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-zinc-500">Symbol</div>
-                    <div className="font-semibold">
-                      {metadata.symbol || "—"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-zinc-500">Decimals</div>
-                    <div className="font-semibold">
-                      {metadata.decimals ?? "—"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-zinc-500">Source</div>
-                    <div className="font-semibold">{metadata.source}</div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="grid gap-6 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm text-zinc-300">
-                  Project Name
-                </label>
-                <input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-cyan-400"
-                  placeholder="Example: WEB3MB Token"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm text-zinc-300">
-                  Token Symbol
-                </label>
-                <input
-                  name="symbol"
-                  value={formData.symbol}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-cyan-400"
-                  placeholder="Example: WMB"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-zinc-300">
-                Project Slug
-              </label>
-              <input
-                name="slug"
-                value={formData.slug}
-                onChange={handleChange}
-                required
-                className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-cyan-400"
-                placeholder="Example: web3mb-token"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-zinc-300">
-                Description
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows={4}
-                className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-cyan-400"
-                placeholder="Tell investors what your token does..."
-              />
-            </div>
+          <div className="flex gap-3">
+            <input
+              value={mint}
+              onChange={(e) => setMint(e.target.value)}
+              placeholder="Paste Solana token mint address"
+              className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+            />
 
             <button
-              type="submit"
-              disabled={loading}
-              className="rounded-xl bg-cyan-500 py-4 font-semibold text-black hover:bg-cyan-400 disabled:opacity-50"
+              type="button"
+              onClick={handleAutoFill}
+              disabled={autoLoading}
+              className="rounded-lg bg-cyan-400 px-5 py-3 text-sm font-black text-black hover:bg-cyan-300 disabled:opacity-60"
             >
-              {loading
-                ? "Creating Trust Dashboard..."
-                : "Create Trust Dashboard"}
+              {autoLoading ? "Loading..." : "Auto-Fill"}
             </button>
           </div>
-        </form>
-      </div>
-    </main>
+        </div>
+
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-xs font-bold text-zinc-200">
+              Project Name
+            </label>
+            <input
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (!slug) setSlug(slugify(e.target.value));
+              }}
+              placeholder="Example: WEB3MB Token"
+              className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-bold text-zinc-200">
+              Token Symbol
+            </label>
+            <input
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+              placeholder="Example: WMB"
+              className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+            />
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <label className="mb-2 block text-xs font-bold text-zinc-200">
+            Project Slug
+          </label>
+          <input
+            value={slug}
+            onChange={(e) => setSlug(slugify(e.target.value))}
+            placeholder="Example: web3mb-token"
+            className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+          />
+        </div>
+
+        <div className="mt-5">
+          <label className="mb-2 block text-xs font-bold text-zinc-200">
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Tell investors what your token does..."
+            rows={4}
+            className="w-full resize-y rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+          />
+        </div>
+
+        <section className="mt-8 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-400">
+                Wallet Disclosure
+              </p>
+
+              <h2 className="mt-2 text-xl font-black text-white">
+                Add Project Wallets
+              </h2>
+
+              <p className="mt-2 text-sm text-zinc-400">
+                Add treasury, liquidity, team, marketing, development, community,
+                burn, and reserve wallets. These appear on the public dashboard.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-black px-4 py-3 text-sm">
+              <span className="text-zinc-400">Total Allocation: </span>
+              <span
+                className={
+                  totalAllocation > 100
+                    ? "font-black text-red-400"
+                    : "font-black text-cyan-300"
+                }
+              >
+                {totalAllocation}%
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-5">
+            {wallets.map((wallet, index) => (
+              <div
+                key={index}
+                className="rounded-2xl border border-zinc-800 bg-black/70 p-5"
+              >
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <h3 className="font-black text-white">Wallet #{index + 1}</h3>
+
+                  <button
+                    type="button"
+                    onClick={() => removeWallet(index)}
+                    className="rounded-lg border border-red-500/40 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/10"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-bold text-zinc-300">
+                      Wallet Label
+                    </label>
+                    <input
+                      value={wallet.label}
+                      onChange={(e) => updateWallet(index, "label", e.target.value)}
+                      placeholder="Example: Treasury Wallet"
+                      className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-bold text-zinc-300">
+                      Category
+                    </label>
+                    <select
+                      value={wallet.category}
+                      onChange={(e) => updateWallet(index, "category", e.target.value)}
+                      className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    >
+                      {WALLET_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="mb-2 block text-xs font-bold text-zinc-300">
+                    Wallet Address
+                  </label>
+                  <input
+                    value={wallet.address}
+                    onChange={(e) => updateWallet(index, "address", e.target.value)}
+                    placeholder="Paste Solana wallet address"
+                    className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-bold text-zinc-300">
+                      Allocation %
+                    </label>
+                    <input
+                      value={wallet.allocation}
+                      onChange={(e) => updateWallet(index, "allocation", e.target.value)}
+                      placeholder="Example: 20"
+                      inputMode="decimal"
+                      className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    />
+                  </div>
+
+                  <label className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={wallet.verified}
+                      onChange={(e) => updateWallet(index, "verified", e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    Mark as verified disclosed wallet
+                  </label>
+                </div>
+
+                <div className="mt-4">
+                  <label className="mb-2 block text-xs font-bold text-zinc-300">
+                    Purpose
+                  </label>
+                  <textarea
+                    value={wallet.purpose}
+                    onChange={(e) => updateWallet(index, "purpose", e.target.value)}
+                    placeholder="Example: Used for treasury, operations, liquidity, development, rewards, or investor protection."
+                    rows={3}
+                    className="w-full resize-y rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={addWallet}
+            className="mt-5 w-full rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-300 hover:bg-cyan-400/20"
+          >
+            + Add Another Wallet
+          </button>
+        </section>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-6 w-full rounded-xl bg-cyan-400 px-5 py-4 text-sm font-black text-black hover:bg-cyan-300 disabled:opacity-60"
+        >
+          {loading ? "Creating Trust Dashboard..." : "Create Trust Dashboard"}
+        </button>
+      </form>
+    </div>
   );
 }
