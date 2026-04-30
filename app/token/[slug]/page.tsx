@@ -65,6 +65,7 @@ type TrustScoreResponse = {
 
 function formatNumber(value?: number | null, maximumFractionDigits = 2) {
   if (value == null || Number.isNaN(value)) return "—";
+
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits,
   }).format(value);
@@ -72,28 +73,36 @@ function formatNumber(value?: number | null, maximumFractionDigits = 2) {
 
 function formatDateTime(value?: string | null) {
   if (!value) return "—";
+
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) return "—";
+
   return date.toLocaleString();
 }
 
 function shortAddress(address?: string | null) {
   if (!address) return "—";
   if (address.length <= 14) return address;
+
   return `${address.slice(0, 6)}...${address.slice(-6)}`;
 }
 
 function gradeTone(grade?: string) {
   if (!grade) return "border-white/10 bg-white/5 text-white";
+
   if (grade.startsWith("A")) {
     return "border-emerald-500/20 bg-emerald-500/10 text-emerald-200";
   }
+
   if (grade.startsWith("B")) {
     return "border-cyan-500/20 bg-cyan-500/10 text-cyan-200";
   }
+
   if (grade.startsWith("C")) {
     return "border-amber-500/20 bg-amber-500/10 text-amber-200";
   }
+
   return "border-rose-500/20 bg-rose-500/10 text-rose-200";
 }
 
@@ -110,6 +119,7 @@ async function getBaseUrl() {
   }
 
   const configured = process.env.NEXT_PUBLIC_APP_URL;
+
   if (configured) {
     return configured.replace(/\/$/, "");
   }
@@ -124,9 +134,9 @@ async function getBaseUrl() {
 async function getTokenData(slug: string): Promise<WalletApiResponse | null> {
   try {
     const baseUrl = await getBaseUrl();
-    const url = `${baseUrl}/api/token/${slug}/wallets}`;
+    const url = `${baseUrl}/api/token/${slug}/wallets`;
 
-    const res = await fetch(url.replace(/}\s*$/, ""), {
+    const res = await fetch(url, {
       cache: "no-store",
     });
 
@@ -136,6 +146,7 @@ async function getTokenData(slug: string): Promise<WalletApiResponse | null> {
     }
 
     const data = (await res.json()) as WalletApiResponse;
+
     if (!data.ok) {
       console.error("token payload not ok:", data);
       return null;
@@ -163,6 +174,7 @@ async function getTrustScore(slug: string): Promise<TrustScoreResponse | null> {
     }
 
     const data = (await res.json()) as TrustScoreResponse;
+
     if (!data.ok) {
       console.error("trust payload not ok:", data);
       return null;
@@ -189,9 +201,14 @@ function StatCard({
       <div className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">
         {label}
       </div>
-      <div className="mt-4 break-words text-4xl font-semibold text-white">
+
+      <div
+        className="mt-4 truncate text-4xl font-semibold text-white"
+        title={String(value)}
+      >
         {value}
       </div>
+
       {hint ? (
         <div className="mt-3 text-sm leading-6 text-zinc-400">{hint}</div>
       ) : null}
@@ -207,11 +224,17 @@ function MetricTile({
   value: string | number;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
       <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
         {label}
       </div>
-      <div className="mt-3 text-2xl font-semibold text-white">{value}</div>
+
+      <div
+        className="mt-3 truncate text-2xl font-semibold text-white"
+        title={String(value)}
+      >
+        {value}
+      </div>
     </div>
   );
 }
@@ -236,7 +259,9 @@ export default async function TokenPublicPage({
             <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
               WEB3MB / Public Transparency Layer
             </div>
+
             <h1 className="mt-4 text-4xl font-semibold">Project not found</h1>
+
             <p className="mt-4 max-w-2xl text-lg text-zinc-300">
               We could not load this public project dashboard.
             </p>
@@ -256,19 +281,24 @@ export default async function TokenPublicPage({
   }
 
   const wallets = tokenData.wallets || [];
+
   const totalDeclared = wallets.reduce(
     (sum, wallet) => sum + Number(wallet.allocation || 0),
     0
   );
+
   const totalLive = wallets.reduce(
     (sum, wallet) => sum + Number(wallet.liveTokenBalance || 0),
     0
   );
+
   const verifiedWallets = wallets.filter((wallet) => wallet.verified).length;
   const lowSolWallets = wallets.filter((wallet) => wallet.lowSol).length;
+
   const mismatchWallets = wallets.filter(
     (wallet) => Math.abs(Number(wallet.variance || 0)) > 0
   ).length;
+
   const coverageRatio =
     totalDeclared > 0 ? (totalLive / totalDeclared) * 100 : 0;
 
@@ -318,14 +348,14 @@ export default async function TokenPublicPage({
               </Link>
 
               <Link
-                href="/app/dashboard"
+                href="/app"
                 className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-sm font-medium text-white transition hover:bg-white/15"
               >
                 Open Owner Hub
               </Link>
 
               <Link
-                href="/app/create-project"
+                href="/app/projects/new"
                 className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-4 text-sm font-semibold text-black transition hover:opacity-90"
               >
                 Create Project
@@ -339,16 +369,19 @@ export default async function TokenPublicPage({
               value={wallets.length}
               hint="Publicly disclosed wallets tracked by WEB3MB."
             />
+
             <StatCard
               label="Verified Wallets"
               value={verifiedWallets}
               hint="Wallets whose live balance matches declared allocation."
             />
+
             <StatCard
               label="Allocation Mismatches"
               value={mismatchWallets}
               hint="Wallets showing live balance variance."
             />
+
             <StatCard
               label="Coverage Ratio"
               value={`${formatNumber(coverageRatio)}%`}
@@ -357,28 +390,46 @@ export default async function TokenPublicPage({
           </div>
 
           <div className="mt-10 grid gap-6 2xl:grid-cols-[minmax(0,1.25fr)_minmax(430px,0.75fr)]">
-            <div className="rounded-[2rem] border border-white/10 bg-black/20 p-7 xl:p-8">
+            <div className="min-w-0 rounded-[2rem] border border-white/10 bg-black/20 p-7 xl:p-8">
               <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                 Public Project Snapshot
               </div>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <MetricTile label="Project Mint" value={tokenData.mint || "—"} />
+                <MetricTile
+                  label="Project Mint"
+                  value={shortAddress(tokenData.mint)}
+                />
+
                 <MetricTile
                   label="Live Wallet Reads"
                   value={`${wallets.length} tracked wallet${
                     wallets.length === 1 ? "" : "s"
                   }`}
                 />
+
                 <MetricTile
                   label="Declared Allocation"
                   value={formatNumber(totalDeclared, 0)}
                 />
+
                 <MetricTile
                   label="Live Disclosed Balance"
                   value={formatNumber(totalLive, 3)}
                 />
               </div>
+
+              {tokenData.mint ? (
+                <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                    Full Mint Address
+                  </div>
+
+                  <div className="mt-3 break-all text-sm font-medium leading-6 text-zinc-300">
+                    {tokenData.mint}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-[2rem] border border-white/10 bg-black/20 p-7 xl:p-8">
@@ -392,6 +443,7 @@ export default async function TokenPublicPage({
                     <div className="text-6xl font-semibold text-white md:text-7xl">
                       {trustData.score ?? "—"}
                     </div>
+
                     <div className="pb-2 text-xl text-zinc-400">/ 100</div>
                   </div>
 
@@ -414,17 +466,24 @@ export default async function TokenPublicPage({
                       label="Wallet Score"
                       value={`${trustData.breakdown?.walletScore ?? "—"} / 40`}
                     />
+
                     <MetricTile
                       label="Alert Score"
                       value={`${trustData.breakdown?.alertScore ?? "—"} / 25`}
                     />
+
                     <MetricTile
                       label="Liquidity Score"
-                      value={`${trustData.breakdown?.liquidityScore ?? "—"} / 20`}
+                      value={`${
+                        trustData.breakdown?.liquidityScore ?? "—"
+                      } / 20`}
                     />
+
                     <MetricTile
                       label="Disclosure Score"
-                      value={`${trustData.breakdown?.disclosureScore ?? "—"} / 15`}
+                      value={`${
+                        trustData.breakdown?.disclosureScore ?? "—"
+                      } / 15`}
                     />
                   </div>
 
@@ -432,6 +491,7 @@ export default async function TokenPublicPage({
                     <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
                       Generated
                     </div>
+
                     <div className="mt-3 text-sm text-zinc-200">
                       {formatDateTime(trustData.generatedAt)}
                     </div>
@@ -470,9 +530,11 @@ export default async function TokenPublicPage({
                 <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                   Disclosed Wallets
                 </div>
+
                 <h2 className="mt-3 text-3xl font-semibold text-white md:text-4xl">
                   Live Wallet Verification
                 </h2>
+
                 <p className="mt-3 max-w-4xl text-base leading-7 text-zinc-300">
                   Publicly disclosed wallet balances compared against declared
                   allocations using live RPC data.
@@ -496,9 +558,14 @@ export default async function TokenPublicPage({
                   const verified = Boolean(wallet.verified);
                   const lowSol = Boolean(wallet.lowSol);
 
-                  const liveSolClass = lowSol ? "text-rose-300" : "text-white";
+                  const liveSolClass = lowSol
+                    ? "text-rose-300"
+                    : "text-white";
+
                   const varianceClass =
-                    Math.abs(variance) > 0 ? "text-rose-300" : "text-emerald-300";
+                    Math.abs(variance) > 0
+                      ? "text-rose-300"
+                      : "text-emerald-300";
 
                   return (
                     <div
@@ -554,23 +621,34 @@ export default async function TokenPublicPage({
                             label="Declared"
                             value={formatNumber(declared, 0)}
                           />
+
                           <MetricTile
                             label="Live Balance"
                             value={formatNumber(live, 3)}
                           />
+
                           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                             <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
                               Live SOL
                             </div>
-                            <div className={`mt-3 text-2xl font-semibold ${liveSolClass}`}>
+
+                            <div
+                              className={`mt-3 truncate text-2xl font-semibold ${liveSolClass}`}
+                              title={formatNumber(sol, 6)}
+                            >
                               {formatNumber(sol, 6)}
                             </div>
                           </div>
+
                           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                             <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
                               Variance
                             </div>
-                            <div className={`mt-3 text-2xl font-semibold ${varianceClass}`}>
+
+                            <div
+                              className={`mt-3 truncate text-2xl font-semibold ${varianceClass}`}
+                              title={formatNumber(variance, 3)}
+                            >
                               {formatNumber(variance, 3)}
                             </div>
                           </div>
@@ -578,18 +656,26 @@ export default async function TokenPublicPage({
                       </div>
 
                       <div className="mt-6 grid gap-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
-                        <a
-                          href={`https://solscan.io/account/${wallet.address}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/15 md:w-auto"
-                        >
-                          View on Solscan
-                        </a>
+                        {wallet.address ? (
+                          <a
+                            href={`https://solscan.io/account/${wallet.address}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/15 md:w-auto"
+                          >
+                            View on Solscan
+                          </a>
+                        ) : null}
 
                         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm text-zinc-400">
-                          <span className="block text-zinc-500">Short address</span>
-                          <span className="mt-2 block break-all text-zinc-300">
+                          <span className="block text-zinc-500">
+                            Short address
+                          </span>
+
+                          <span
+                            className="mt-2 block truncate text-zinc-300"
+                            title={wallet.address || ""}
+                          >
                             {shortAddress(wallet.address)}
                           </span>
                         </div>
@@ -611,11 +697,13 @@ export default async function TokenPublicPage({
               value={lowSolWallets}
               hint="Wallets that may need operational funding."
             />
+
             <StatCard
               label="Declared Allocation"
               value={formatNumber(totalDeclared, 0)}
               hint="Total allocation disclosed by the project."
             />
+
             <StatCard
               label="Live Disclosed Balance"
               value={formatNumber(totalLive, 3)}
