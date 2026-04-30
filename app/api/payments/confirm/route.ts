@@ -21,7 +21,7 @@ const PLAN_DURATION: Record<string, number | null> = {
 };
 
 function isTestModeEnabled() {
-  return process.env.WEB3MB_TEST_MODE === "true";
+  return process.env.WEB3MB_TEST_MODE === "false";
 }
 
 function jsonWithSession(
