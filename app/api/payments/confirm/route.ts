@@ -1,137 +1,55 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { verifySolTransfer } from "@/lib/solana";
-import { createSessionToken } from "@/lib/session";
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-const COOKIE_NAME = "jtrumphq_session";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const PLAN_DURATION: Record<string, number | null> = {
-  "launch-pass": 30,
-  starter: 30,
-  growth: 30,
-  enterprise: null,
-};
+const RPC_URL =
+  process.env.SOLANA_RPC_URL ||
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+  "https://api.mainnet-beta.solana.com";
 
-function isTestModeEnabled() {
-  return process.env.WEB3MB_TEST_MODE === "false";
-}
+const RECEIVING_WALLET = process.env.SOLANA_RECEIVING_WALLET!;
 
-function jsonWithSession(
-  body: any,
-  session: {
-    userId: string;
-    walletAddress: string;
-    role: "admin" | "user";
-  }
-) {
-  const token = createSessionToken({
-    ...session,
-    exp: Date.now() + 1000 * 60 * 60 * 24 * 30,
-  });
+function getSubscriptionEnd(plan: string) {
+  const now = new Date();
 
-  const response = NextResponse.json(body);
-
-  response.cookies.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: true,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
-
-  return response;
-}
-
-async function activateSubscription({
-  paymentId,
-  plan,
-  signature,
-  senderWallet,
-}: {
-  paymentId: string;
-  plan: string;
-  signature: string;
-  senderWallet: string;
-}) {
-  let { data: user, error: userLookupError } = await supabase
-    .from("users")
-    .select("*")
-    .eq("wallet_address", senderWallet)
-    .maybeSingle();
-
-  if (userLookupError) throw userLookupError;
-
-  if (!user) {
-    const { data: newUser, error: userCreateError } = await supabase
-      .from("users")
-      .insert({
-        wallet_address: senderWallet,
-        role: "user",
-      })
-      .select()
-      .single();
-
-    if (userCreateError) throw userCreateError;
-
-    user = newUser;
+  if (plan === "launch-pass") {
+    now.setFullYear(now.getFullYear() + 10);
+    return now.toISOString();
   }
 
-  await supabase
-    .from("subscriptions")
-    .update({
-      status: "expired",
-    })
-    .eq("user_id", user.id)
-    .eq("status", "active");
-
-  const durationDays = PLAN_DURATION[plan] ?? 30;
-
-  const endsAt =
-    durationDays === null
-      ? null
-      : new Date(
-          Date.now() + durationDays * 24 * 60 * 60 * 1000
-        ).toISOString();
-
-  const { error: subscriptionError } = await supabase
-    .from("subscriptions")
-    .insert({
-      user_id: user.id,
-      wallet_address: senderWallet,
-      plan,
-      status: "active",
-      source_payment_id: paymentId,
-      tx_signature: signature,
-      starts_at: new Date().toISOString(),
-      ends_at: endsAt,
-    });
-
-  if (subscriptionError) throw subscriptionError;
-
-  return user;
+  now.setMonth(now.getMonth() + 1);
+  return now.toISOString();
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
+    const session = await getSession();
+
+    if (!session) {
+      return NextResponse.json(
+        { ok: false, error: "Login required." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
 
-    const paymentId = String(body.paymentId || "");
-    const signature = String(body.signature || "");
-    const senderWallet = String(body.senderWallet || "");
-    const testMode = Boolean(body.testMode);
-    const testPassword = String(body.testPassword || "");
+    const paymentId = String(body.paymentId || "").trim();
+    const signature = String(body.signature || "").trim();
+    const walletAddress = String(body.walletAddress || "").trim();
 
-    if (!paymentId) {
+    if (!paymentId || !signature || !walletAddress) {
       return NextResponse.json(
-        { ok: false, error: "paymentId is required" },
+        { ok: false, error: "Missing paymentId, signature, or walletAddress." },
         { status: 400 }
       );
     }
@@ -140,187 +58,128 @@ export async function POST(req: NextRequest) {
       .from("payment_sessions")
       .select("*")
       .eq("id", paymentId)
+      .eq("user_id", session.userId)
       .maybeSingle();
 
-    if (paymentError || !payment) {
+    if (paymentError) throw paymentError;
+
+    if (!payment) {
       return NextResponse.json(
-        { ok: false, error: "Payment session not found" },
+        { ok: false, error: "Payment session not found." },
         { status: 404 }
       );
     }
 
     if (payment.status === "confirmed") {
-      const existingWallet =
-        payment.sender_wallet || senderWallet || "WEB3MB_TEST_ADMIN";
-
-      const { data: existingUser } = await supabase
-        .from("users")
-        .select("*")
-        .eq("wallet_address", existingWallet)
-        .maybeSingle();
-
-      if (existingUser) {
-        return jsonWithSession(
-          {
-            ok: true,
-            unlocked: true,
-            status: "confirmed",
-            alreadyConfirmed: true,
-            redirectTo: "/app/projects/new",
-          },
-          {
-            userId: existingUser.id,
-            walletAddress: existingUser.wallet_address,
-            role: existingUser.role || "user",
-          }
-        );
-      }
-
-      return NextResponse.json({
-        ok: true,
-        unlocked: true,
-        status: "confirmed",
-        alreadyConfirmed: true,
-        redirectTo: "/app/projects/new",
-      });
+      return NextResponse.json({ ok: true, alreadyConfirmed: true });
     }
 
-    const isExpired = new Date(payment.expires_at).getTime() < Date.now();
+    const connection = new Connection(RPC_URL, "confirmed");
 
-    if (isExpired) {
-      await supabase
-        .from("payment_sessions")
-        .update({ status: "expired" })
-        .eq("id", paymentId);
-
-      return NextResponse.json(
-        { ok: false, error: "Payment session expired" },
-        { status: 400 }
-      );
-    }
-
-    if (testMode) {
-      if (!isTestModeEnabled()) {
-        return NextResponse.json(
-          { ok: false, error: "Test mode is not enabled." },
-          { status: 403 }
-        );
-      }
-
-      if (
-        !process.env.ADMIN_PASSWORD ||
-        testPassword !== process.env.ADMIN_PASSWORD
-      ) {
-        return NextResponse.json(
-          { ok: false, error: "Invalid test mode password." },
-          { status: 403 }
-        );
-      }
-
-      const testSenderWallet = senderWallet || "WEB3MB_TEST_ADMIN";
-      const testSignature = `test_${paymentId}_${Date.now()}`;
-
-      await supabase
-        .from("payment_sessions")
-        .update({
-          status: "confirmed",
-          sender_wallet: testSenderWallet,
-          tx_signature: testSignature,
-          confirmed_at: new Date().toISOString(),
-        })
-        .eq("id", paymentId);
-
-      const user = await activateSubscription({
-        paymentId,
-        plan: payment.plan,
-        signature: testSignature,
-        senderWallet: testSenderWallet,
-      });
-
-      return jsonWithSession(
-        {
-          ok: true,
-          unlocked: true,
-          status: "confirmed",
-          testMode: true,
-          userId: user.id,
-          plan: payment.plan,
-          redirectTo: "/app/projects/new",
-        },
-        {
-          userId: user.id,
-          walletAddress: user.wallet_address,
-          role: user.role || "user",
-        }
-      );
-    }
-
-    if (!signature || !senderWallet) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "paymentId, signature, and senderWallet are required",
-        },
-        { status: 400 }
-      );
-    }
-
-    const verification = await verifySolTransfer({
-      signature,
-      senderWallet,
-      recipientWallet: payment.recipient_wallet,
-      expectedLamports: payment.amount_lamports,
+    const tx = await connection.getParsedTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      commitment: "confirmed",
     });
 
-    if (!verification.ok) {
+    if (!tx) {
+      return NextResponse.json(
+        { ok: false, error: "Transaction not found or not confirmed yet." },
+        { status: 400 }
+      );
+    }
+
+    if (tx.meta?.err) {
+      return NextResponse.json(
+        { ok: false, error: "Transaction failed on-chain." },
+        { status: 400 }
+      );
+    }
+
+    const expectedReceiver = new PublicKey(RECEIVING_WALLET).toBase58();
+    const expectedSender = new PublicKey(walletAddress).toBase58();
+    const expectedLamports = Number(payment.lamports);
+
+    let validTransfer = false;
+
+    for (const instruction of tx.transaction.message.instructions as any[]) {
+      if (
+        instruction?.program === "system" &&
+        instruction?.parsed?.type === "transfer"
+      ) {
+        const info = instruction.parsed.info;
+        const source = String(info.source);
+        const destination = String(info.destination);
+        const lamports = Number(info.lamports || 0);
+
+        if (
+          source === expectedSender &&
+          destination === expectedReceiver &&
+          lamports >= expectedLamports
+        ) {
+          validTransfer = true;
+          break;
+        }
+      }
+    }
+
+    if (!validTransfer) {
       return NextResponse.json(
         {
           ok: false,
-          error: verification.reason || "Payment verification failed",
+          error: `Valid payment transfer not found. Required: ${
+            expectedLamports / LAMPORTS_PER_SOL
+          } SOL.`,
         },
         { status: 400 }
       );
     }
 
-    await supabase
+    const nowIso = new Date().toISOString();
+    const endsAt = getSubscriptionEnd(payment.plan);
+
+    const { error: updatePaymentError } = await supabase
       .from("payment_sessions")
       .update({
+        wallet_address: walletAddress,
+        signature,
         status: "confirmed",
-        sender_wallet: senderWallet,
-        tx_signature: signature,
-        confirmed_at: new Date().toISOString(),
+        confirmed_at: nowIso,
       })
       .eq("id", paymentId);
 
-    const user = await activateSubscription({
-      paymentId,
-      plan: payment.plan,
-      signature,
-      senderWallet,
-    });
+    if (updatePaymentError) throw updatePaymentError;
 
-    return jsonWithSession(
-      {
-        ok: true,
-        unlocked: true,
-        status: "confirmed",
-        userId: user.id,
-        plan: payment.plan,
-        redirectTo: "/app/projects/new",
-      },
-      {
-        userId: user.id,
-        walletAddress: user.wallet_address,
-        role: user.role || "user",
-      }
-    );
+    const { error: subscriptionError } = await supabase
+      .from("subscriptions")
+      .upsert(
+        {
+          user_id: session.userId,
+          wallet_address: walletAddress,
+          plan: payment.plan,
+          status: "active",
+          starts_at: nowIso,
+          ends_at: endsAt,
+          payment_signature: signature,
+        },
+        { onConflict: "user_id" }
+      );
+
+    if (subscriptionError) throw subscriptionError;
+
+    return NextResponse.json({
+      ok: true,
+      unlocked: true,
+      signature,
+      plan: payment.plan,
+      redirectTo: "/app/projects/new",
+    });
   } catch (error: any) {
-    console.error("payment confirm error", error);
+    console.error("POST /api/payments/confirm error:", error);
 
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Failed to confirm payment",
+        error: error?.message || "Payment confirmation failed.",
       },
       { status: 500 }
     );
