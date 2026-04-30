@@ -1,597 +1,87 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import {
-  Connection,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-} from "@solana/web3.js";
+import { useState } from "react";
 
-type CheckoutPlan = "launch-pass" | "starter" | "growth";
-
-type PaymentSession = {
-  paymentId?: string;
-  id?: string;
-  plan?: string;
-  amountSol?: number;
-  amountLamports?: number;
-  amountUsd?: number;
-  solUsdRate?: number;
-  solUsdRateSource?: string;
-  recipientWallet?: string;
-  recipient?: string;
-  expiresAt?: string;
-  expires_at?: string;
-};
-
-type PhantomProvider = {
-  isPhantom?: boolean;
-  publicKey?: PublicKey;
-  connect: () => Promise<{ publicKey: PublicKey }>;
-  signAndSendTransaction: (
-    transaction: Transaction
-  ) => Promise<{ signature: string }>;
-};
-
-const PLAN_CONFIG = {
-  "launch-pass": {
-    label: "Launch Pass",
-    price: "$149 one-time",
-    description: "For fast token launches needing public trust verification.",
-    features: [
-      "Wallet verification",
-      "Trust badge",
-      "Public token listing",
-      "Liquidity disclosure",
-      "30-day trust visibility",
-      "No recurring billing",
-    ],
-  },
-  starter: {
-    label: "Starter",
-    price: "$99/mo",
-    description: "For one token project launching public trust monitoring.",
-    features: [
-      "1 project",
-      "Up to 5 wallets",
-      "Live wallet monitoring",
-      "Basic alerts",
-      "Public trust badge",
-    ],
-  },
-  growth: {
-    label: "Growth",
-    price: "$299/mo",
-    description: "For active founders managing multiple token projects.",
-    features: [
-      "Up to 5 projects",
-      "Up to 50 wallets",
-      "Advanced alerts",
-      "Trust analytics",
-      "Priority support",
-    ],
-  },
-} as const;
-
-function getPhantomProvider(): PhantomProvider | undefined {
-  if (typeof window === "undefined") return undefined;
-  return (window as any).solana as PhantomProvider | undefined;
-}
-
-function maskWallet(wallet?: string) {
-  if (!wallet) return "";
-  if (wallet.length <= 12) return wallet;
-  return `${wallet.slice(0, 6)}...${wallet.slice(-6)}`;
-}
-
-function getPaymentId(payment: PaymentSession | null) {
-  return payment?.paymentId || payment?.id || "";
-}
-
-function getRecipient(payment: PaymentSession | null) {
-  return payment?.recipientWallet || payment?.recipient || "";
-}
-
-function getLamports(payment: PaymentSession | null) {
-  if (!payment) return 0;
-
-  if (typeof payment.amountLamports === "number") {
-    return payment.amountLamports;
-  }
-
-  if (typeof payment.amountSol === "number") {
-    return Math.round(payment.amountSol * LAMPORTS_PER_SOL);
-  }
-
-  return 0;
-}
-
-function getSolAmount(payment: PaymentSession | null) {
-  if (!payment?.amountSol) return "—";
-  return `${payment.amountSol.toFixed(4)} SOL`;
-}
-
-export default function CryptoPlanCheckoutPage({
-  params,
-}: {
-  params: { plan: string };
-}) {
-  const normalizedPlan = params.plan?.toLowerCase();
-
-  const plan =
-    normalizedPlan === "launch-pass" ||
-    normalizedPlan === "starter" ||
-    normalizedPlan === "growth"
-      ? (normalizedPlan as CheckoutPlan)
-      : null;
-
-  const config = plan ? PLAN_CONFIG[plan] : null;
-  const testModeEnabled =
-    process.env.NEXT_PUBLIC_WEB3MB_TEST_MODE === "true";
-
-  const [payment, setPayment] = useState<PaymentSession | null>(null);
-  const [wallet, setWallet] = useState("");
-  const [status, setStatus] = useState("Preparing payment session...");
-  const [error, setError] = useState("");
-  const [signature, setSignature] = useState("");
+export default function CryptoCheckoutPage() {
+  const [wallet, setWallet] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [testPassword, setTestPassword] = useState("");
-  const [testLoading, setTestLoading] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
 
-  const rpcUrl = useMemo(() => {
-    return (
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-      "https://api.mainnet-beta.solana.com"
-    );
-  }, []);
-
-  useEffect(() => {
-    async function createPaymentSession() {
-      if (!config || !plan) return;
-
-      setError("");
-      setStatus("Creating secure payment session...");
-
-      try {
-        const res = await fetch("/api/payments/create", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ plan }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || data?.ok === false) {
-          throw new Error(data?.error || "Unable to create payment session");
-        }
-
-        setPayment(data.payment || data);
-        setStatus("Payment session ready");
-      } catch (err: any) {
-        setError(err?.message || "Failed to create payment session");
-        setStatus("Payment session failed");
-      }
-    }
-
-    createPaymentSession();
-  }, [config, plan]);
-
-  async function connectPhantom() {
-    setError("");
-
+  const connectPhantom = async () => {
     try {
-      const provider = getPhantomProvider();
-
-      if (!provider?.isPhantom) {
-        throw new Error("Phantom wallet is not installed.");
+      const provider = (window as any).solana;
+      if (!provider) {
+        alert("Phantom wallet not found");
+        return;
       }
 
-      const response = await provider.connect();
-      setWallet(response.publicKey.toBase58());
-      setStatus("Wallet connected");
-    } catch (err: any) {
-      setError(err?.message || "Failed to connect Phantom");
+      const resp = await provider.connect();
+      setWallet(resp.publicKey.toString());
+    } catch (err) {
+      console.error(err);
     }
-  }
+  };
 
-  async function payWithPhantom() {
-    setError("");
+  const payWithPhantom = async () => {
     setLoading(true);
 
     try {
-      const provider = getPhantomProvider();
+      // 🔥 Replace this with your real payment logic
+      await new Promise((r) => setTimeout(r, 2000));
 
-      if (!provider?.isPhantom) {
-        throw new Error("Phantom wallet is not installed.");
-      }
-
-      const connected = provider.publicKey
-        ? { publicKey: provider.publicKey }
-        : await provider.connect();
-
-      const fromPubkey = connected.publicKey;
-      const senderWallet = fromPubkey.toBase58();
-
-      setWallet(senderWallet);
-
-      const recipient = getRecipient(payment);
-      const lamports = getLamports(payment);
-      const paymentId = getPaymentId(payment);
-
-      if (!recipient) throw new Error("Missing payment recipient.");
-      if (!lamports) throw new Error("Missing payment amount.");
-      if (!paymentId) throw new Error("Missing payment ID.");
-
-      const connection = new Connection(rpcUrl, "confirmed");
-
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey,
-          toPubkey: new PublicKey(recipient),
-          lamports,
-        })
-      );
-
-      transaction.feePayer = fromPubkey;
-
-      const latestBlockhash = await connection.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = latestBlockhash.blockhash;
-
-      setStatus("Waiting for Phantom approval...");
-
-      const result = await provider.signAndSendTransaction(transaction);
-
-      setSignature(result.signature);
-      setStatus("Payment sent. Confirming on-chain...");
-
-      await connection.confirmTransaction(
-        {
-          signature: result.signature,
-          blockhash: latestBlockhash.blockhash,
-          lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-        },
-        "confirmed"
-      );
-
-      setStatus("Activating subscription...");
-
-      const confirmRes = await fetch("/api/payments/confirm", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          paymentId,
-          signature: result.signature,
-          senderWallet,
-          plan,
-        }),
-      });
-
-      const confirmData = await confirmRes.json().catch(() => null);
-
-      if (!confirmRes.ok || confirmData?.ok === false) {
-        throw new Error(
-          confirmData?.error ||
-            "Payment sent, but subscription activation did not complete."
-        );
-      }
-
-      setStatus("Payment confirmed. Redirecting to create your project...");
-
-      window.location.href = confirmData?.redirectTo || "/app/projects/new";
-    } catch (err: any) {
-      setError(err?.message || "Payment failed");
-      setStatus("Payment failed");
-    } finally {
-      setLoading(false);
+      setSignature("SIMULATED_SIGNATURE_123");
+    } catch (err) {
+      console.error(err);
     }
-  }
 
-  async function activateTestMode() {
-    setError("");
-    setTestLoading(true);
+    setLoading(false);
+  };
 
-    try {
-      const paymentId = getPaymentId(payment);
-
-      if (!paymentId) {
-        throw new Error("Payment session is not ready yet.");
-      }
-
-      if (!testPassword.trim()) {
-        throw new Error("Enter the admin test password.");
-      }
-
-      setStatus("Activating test mode subscription...");
-
-      const confirmRes = await fetch("/api/payments/confirm", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          paymentId,
-          testMode: true,
-          testPassword,
-          senderWallet: "WEB3MB_TEST_ADMIN",
-          plan,
-        }),
-      });
-
-      const confirmData = await confirmRes.json().catch(() => null);
-
-      if (!confirmRes.ok || confirmData?.ok === false) {
-        throw new Error(
-          confirmData?.error || "Test mode activation failed."
-        );
-      }
-
-      setStatus("Test mode activated. Redirecting...");
-
-      window.location.href = confirmData?.redirectTo || "/app/projects/new";
-    } catch (err: any) {
-      setError(err?.message || "Test mode activation failed.");
-      setStatus("Test mode failed");
-    } finally {
-      setTestLoading(false);
-    }
-  }
-
-  if (!config || !plan) {
-    return (
-      <main className="min-h-screen bg-black px-6 py-12 text-white">
-        <div className="mx-auto max-w-2xl rounded-3xl border border-red-500/40 bg-red-500/5 p-8">
-          <h1 className="text-3xl font-bold">Invalid Plan</h1>
-
-          <p className="mt-4 text-zinc-300">
-            The selected checkout plan does not exist.
-          </p>
-
-          <Link
-            href="/app/billing"
-            className="mt-6 inline-flex rounded-xl bg-cyan-500 px-5 py-3 font-semibold text-black hover:bg-cyan-400"
-          >
-            Back to Billing
-          </Link>
-        </div>
-      </main>
-    );
-  }
+  const maskWallet = (w: string) =>
+    w.slice(0, 4) + "..." + w.slice(-4);
 
   return (
-    <div className="flex min-h-screen bg-black text-white">
-      <aside className="hidden w-[280px] shrink-0 border-r border-white/10 bg-[#050816] xl:block">
-        <div className="flex min-h-screen flex-col px-5 py-7">
-          <img
-            src="https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png"
-            alt="WEB3MB Logo"
-            className="h-20 w-auto object-contain"
-          />
+    <main className="min-h-screen bg-black text-white">
+      <div className="mx-auto max-w-2xl px-6 py-10">
+        <h1 className="text-3xl font-black mb-6">
+          Pay with Phantom
+        </h1>
 
-          <div className="mt-5 inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-cyan-300">
-            Secure Checkout
-          </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            onClick={connectPhantom}
+            className="rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-zinc-200"
+          >
+            Connect Phantom
+          </button>
 
-          <p className="mt-5 text-sm leading-7 text-zinc-400">
-            Activate your WEB3MB plan using Phantom wallet payment.
-          </p>
-
-          <div className="mt-8 space-y-3">
-            <Link
-              href="/app/billing"
-              className="block rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-semibold hover:bg-white/10"
-            >
-              Back to Billing
-            </Link>
-
-            <Link
-              href="/app"
-              className="block rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-semibold hover:bg-white/10"
-            >
-              Owner Dashboard
-            </Link>
-
-            <Link
-              href="/transparency"
-              className="block rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-semibold hover:bg-white/10"
-            >
-              Public Directory
-            </Link>
-          </div>
-
-          <div className="mt-auto rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
-              Support
-            </div>
-
-            <div className="mt-3 break-all text-xs font-semibold">
-              verify@web3mb.com
-            </div>
-          </div>
+          <button
+            onClick={payWithPhantom}
+            disabled={loading}
+            className="rounded-xl bg-emerald-500 px-5 py-4 font-semibold text-black hover:bg-emerald-400 disabled:opacity-50"
+          >
+            {loading ? "Processing..." : "Pay With Phantom"}
+          </button>
         </div>
-      </aside>
 
-      <main className="flex-1 px-5 py-8 xl:px-8">
-        <div className="mx-auto max-w-4xl rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl xl:p-8">
-          <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">
-              WEB3MB Crypto Checkout
-            </p>
-
-            <h1 className="mt-4 text-4xl font-bold">
-              Activate {config.label}
-            </h1>
-
-            <p className="mt-4 max-w-2xl text-zinc-400">
-              {config.description}
-            </p>
-          </div>
-
-          <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-6">
-              <div className="text-sm uppercase tracking-[0.25em] text-cyan-300">
-                Selected Plan
-              </div>
-
-              <h2 className="mt-3 text-3xl font-bold">{config.label}</h2>
-
-              <div className="mt-4 text-4xl font-bold text-cyan-400">
-                {config.price}
-              </div>
-
-              <ul className="mt-6 space-y-3 text-sm text-zinc-300">
-                {config.features.map((feature) => (
-                  <li key={feature} className="flex gap-2">
-                    <span className="text-cyan-400">•</span>
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {testModeEnabled ? (
-                <div className="mt-6 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
-                  <div className="text-sm font-semibold text-yellow-300">
-                    Admin Test Mode
-                  </div>
-                  <p className="mt-2 text-xs leading-5 text-yellow-100/80">
-                    Use this only for internal testing. It activates access
-                    without sending SOL.
-                  </p>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-              <div className="text-sm uppercase tracking-[0.25em] text-zinc-400">
-                Status
-              </div>
-
-              <h2 className="mt-2 text-2xl font-bold">{status}</h2>
-
-              {error ? (
-                <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-                  {error}
-                </div>
-              ) : null}
-
-              <div className="mt-6 space-y-4 text-sm">
-                <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-zinc-500">Payment Session</div>
-
-                  <div className="mt-1 font-semibold text-white">
-                    {getPaymentId(payment) ? "Active" : "Creating..."}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-zinc-500">Amount</div>
-
-                  <div className="mt-1 font-semibold">
-                    {payment?.amountUsd ? `$${payment.amountUsd} USD / ` : ""}
-                    {getSolAmount(payment)}
-                  </div>
-
-                  {payment?.solUsdRate ? (
-                    <div className="mt-1 text-xs text-zinc-500">
-                      Live conversion rate: 1 SOL = ${payment.solUsdRate}
-                    </div>
-                  ) : null}
-
-                  {payment?.solUsdRateSource ? (
-                    <div className="mt-1 text-xs text-zinc-600">
-                      Rate source: {payment.solUsdRateSource}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                  <div className="text-emerald-300">Secure Recipient</div>
-
-                  <div className="mt-1 text-zinc-300">
-                    Payment destination is embedded inside the Phantom
-                    transaction and is not displayed publicly.
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={connectPhantom}
-                  className="rounded-xl bg-white px-5 py-4 font-semibold text-black hover:bg-zinc-200"
-                >
-                  Connect Phantom
-                </button>
-
-                <button
-                  onClick={payWithPhantom}
-                  disabled={loading || !payment}
-                  className="rounded-xl bg-emerald-500 px-5 py-4 font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {loading ? "Processing..." : "Pay With Phantom"}
-                </button>
-              </div>
-
-              {testModeEnabled ? (
-                <div className="mt-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5">
-                  <div className="text-sm font-semibold text-yellow-300">
-                    Internal Test Unlock
-                  </div>
-
-                  <p className="mt-2 text-xs leading-5 text-yellow-100/80">
-                    Enter the admin password to simulate payment success and
-                    unlock project creation.
-                  </p>
-
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                    <input
-                      type="password"
-                      value={testPassword}
-                      onChange={(e) => setTestPassword(e.target.value)}
-                      className="flex-1 rounded-xl border border-yellow-500/30 bg-black px-4 py-3 text-sm text-white outline-none"
-                      placeholder="Admin test password"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={activateTestMode}
-                      disabled={testLoading || !payment}
-                      className="rounded-xl bg-yellow-400 px-5 py-3 font-semibold text-black hover:bg-yellow-300 disabled:opacity-50"
-                    >
-                      {testLoading ? "Activating..." : "Test Unlock"}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {wallet ? (
-                <div className="mt-5 rounded-xl border border-white/10 bg-black/30 p-4 text-sm">
-                  <div className="text-zinc-500">Connected Wallet</div>
-
-                  <div className="mt-1 break-all font-semibold">
-                    {maskWallet(wallet)}
-                  </div>
-                </div>
-              ) : null}
-
-              {signature ? (
-                <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
-                  <div className="text-emerald-300">Transaction Signature</div>
-
-                  <div className="mt-1 break-all font-semibold">
-                    {signature}
-                  </div>
-                </div>
-              ) : null}
+        {wallet && (
+          <div className="mt-5 rounded-xl border border-white/10 bg-black/30 p-4 text-sm">
+            <div className="text-zinc-500">Connected Wallet</div>
+            <div className="mt-1 break-all font-semibold">
+              {maskWallet(wallet)}
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+        )}
+
+        {signature && (
+          <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
+            <div className="text-emerald-300">Transaction Signature</div>
+            <div className="mt-1 break-all font-semibold">
+              {signature}
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
