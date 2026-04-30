@@ -43,6 +43,11 @@ function emptyWallet(): WalletInput {
   };
 }
 
+import { redirect } from "next/navigation";
+
+export default function NewProjectRedirect() {
+  redirect("/app/projects/new");
+}
 export default function NewProjectPage() {
   const router = useRouter();
 
