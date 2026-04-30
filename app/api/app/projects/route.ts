@@ -19,7 +19,6 @@ const RPC_URL =
 function getProjectLimit(plan: string) {
   switch ((plan || "").toLowerCase()) {
     case "launch-pass":
-      return 1;
     case "starter":
       return 1;
     case "growth":
@@ -40,6 +39,26 @@ function slugify(value: string) {
     .slice(0, 60);
 }
 
+function cleanWallets(input: any) {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .map((wallet) => ({
+      label: String(wallet?.label || "").trim(),
+      category: String(wallet?.category || "Other").trim(),
+      address: String(wallet?.address || "").trim(),
+      allocation:
+        wallet?.allocation === null ||
+        wallet?.allocation === undefined ||
+        wallet?.allocation === ""
+          ? null
+          : Number(wallet.allocation),
+      purpose: String(wallet?.purpose || "").trim(),
+      verified: Boolean(wallet?.verified),
+    }))
+    .filter((wallet) => wallet.address || wallet.label || wallet.purpose);
+}
+
 async function getTokenMetadata(mint: string) {
   const fallback = {
     mint,
@@ -55,16 +74,12 @@ async function getTokenMetadata(mint: string) {
   try {
     const response = await fetch(RPC_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: "web3mb-get-asset",
         method: "getAsset",
-        params: {
-          id: mint,
-        },
+        params: { id: mint },
       }),
       cache: "no-store",
     });
@@ -76,8 +91,6 @@ async function getTokenMetadata(mint: string) {
     const symbol = result?.content?.metadata?.symbol || "";
     const description = result?.content?.metadata?.description || "";
 
-    const slugBase = name || symbol || `token-${mint.slice(0, 6)}`;
-
     if (name || symbol) {
       return {
         mint,
@@ -87,7 +100,7 @@ async function getTokenMetadata(mint: string) {
         supply: result?.token_info?.supply
           ? String(result.token_info.supply)
           : null,
-        slug: slugify(slugBase),
+        slug: slugify(name || symbol || `token-${mint.slice(0, 6)}`),
         description,
         source: "helius-das",
       };
@@ -138,9 +151,7 @@ async function getActiveSubscription(session: {
     .from("subscriptions")
     .select("*")
     .eq("status", "active")
-    .or(
-      `user_id.eq.${session.userId},wallet_address.eq.${session.walletAddress}`
-    )
+    .or(`user_id.eq.${session.userId},wallet_address.eq.${session.walletAddress}`)
     .or(`ends_at.is.null,ends_at.gt.${nowIso}`)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -159,21 +170,14 @@ export async function GET(req: Request) {
 
     if (lookup === "metadata" && mint) {
       const metadata = await getTokenMetadata(mint);
-
-      return NextResponse.json({
-        ok: true,
-        metadata,
-      });
+      return NextResponse.json({ ok: true, metadata });
     }
 
     const session = await getSession();
 
     if (!session) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "Authentication required",
-        },
+        { ok: false, error: "Authentication required" },
         { status: 401 }
       );
     }
@@ -223,8 +227,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error:
-            "Payment required. Please choose a plan before creating a project.",
+          error: "Authentication required. Please connect/login first.",
           redirectTo: "/app/billing",
         },
         { status: 401 }
@@ -237,11 +240,10 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error:
-            "No active paid plan found. Please purchase a plan before creating a project.",
+          error: "No active paid plan found. Please purchase a plan before creating a project.",
           redirectTo: "/app/billing",
         },
-        { status: 403 }
+        { status: 402 }
       );
     }
 
@@ -285,10 +287,7 @@ export async function POST(req: Request) {
 
     if (!mint) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "Token mint address is required.",
-        },
+        { ok: false, error: "Token mint address is required." },
         { status: 400 }
       );
     }
@@ -313,6 +312,8 @@ export async function POST(req: Request) {
       metadata.description ||
       `WEB3MB transparency profile for ${name}.`;
 
+    const wallets = cleanWallets(body.wallets);
+
     const { data, error } = await supabase
       .from("projects")
       .insert({
@@ -326,7 +327,7 @@ export async function POST(req: Request) {
           primary: "cyan",
           accent: "zinc",
         },
-        wallets: [],
+        wallets,
       })
       .select()
       .single();
