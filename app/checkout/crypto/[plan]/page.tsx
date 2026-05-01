@@ -1,10 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import {
+  Connection,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 
 type PlanKey = "launch-pass" | "starter" | "growth" | "enterprise";
+
+type PaymentSession = {
+  id: string;
+  plan: string;
+  amountUsd: number;
+  solAmount: number;
+  lamports: number;
+  solUsdRate?: number;
+  solUsdRateSource?: string;
+  recipient: string;
+};
 
 const LOGO_URL = "https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png";
 
@@ -71,52 +88,192 @@ function maskWallet(wallet: string) {
   return `${wallet.slice(0, 6)}...${wallet.slice(-6)}`;
 }
 
+function getPlanKey(value: string): PlanKey {
+  const clean = value.toLowerCase();
+
+  if (
+    clean === "launch-pass" ||
+    clean === "starter" ||
+    clean === "growth" ||
+    clean === "enterprise"
+  ) {
+    return clean;
+  }
+
+  return "starter";
+}
+
 export default function CryptoCheckoutPage() {
   const params = useParams();
   const router = useRouter();
 
-  const rawPlan = String(params?.plan || "starter").toLowerCase();
-  const planKey: PlanKey =
-    rawPlan === "launch-pass" ||
-    rawPlan === "starter" ||
-    rawPlan === "growth" ||
-    rawPlan === "enterprise"
-      ? rawPlan
-      : "starter";
-
+  const planKey = getPlanKey(String(params?.plan || "starter"));
   const plan = PLANS[planKey];
 
   const [wallet, setWallet] = useState<string | null>(null);
+  const [payment, setPayment] = useState<PaymentSession | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState("");
+
+  const rpcUrl =
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+    "https://api.mainnet-beta.solana.com";
+
+  const amountLabel = useMemo(() => {
+    if (!payment) return plan.price;
+    return `${payment.solAmount} SOL / $${payment.amountUsd}`;
+  }, [payment, plan.price]);
+
+  useEffect(() => {
+    async function createPaymentSession() {
+      try {
+        setSessionLoading(true);
+        setError("");
+
+        if (planKey === "enterprise") {
+          setError("Enterprise plans require manual setup. Please contact support.");
+          return;
+        }
+
+        const res = await fetch("/api/payments/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            plan: planKey,
+          }),
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          throw new Error(data?.error || data?.message || "Payment session failed.");
+        }
+
+        if (!data?.payment?.id || !data?.payment?.recipient) {
+          throw new Error("Payment session is missing required payment details.");
+        }
+
+        setPayment(data.payment);
+      } catch (err: any) {
+        setError(err?.message || "Payment session failed.");
+      } finally {
+        setSessionLoading(false);
+      }
+    }
+
+    createPaymentSession();
+  }, [planKey]);
 
   async function connectPhantom() {
     try {
+      setError("");
+
       const provider = (window as any).solana;
 
       if (!provider || !provider.isPhantom) {
-        alert("Phantom wallet not found.");
-        return;
+        throw new Error("Phantom wallet not found. Please install or unlock Phantom.");
       }
 
       const resp = await provider.connect();
       setWallet(resp.publicKey.toString());
-    } catch (error) {
-      console.error(error);
+    } catch (err: any) {
+      setError(err?.message || "Unable to connect Phantom.");
     }
   }
 
   async function payWithPhantom() {
-    setLoading(true);
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setSignature("TEMP_SIGNATURE_REMOVE_AFTER_REAL_PAYMENT");
-      router.push("/app/projects/new");
-    } catch (error) {
-      console.error(error);
+      setPaying(true);
+      setError("");
+      setSignature(null);
+
+      const provider = (window as any).solana;
+
+      if (!provider || !provider.isPhantom) {
+        throw new Error("Phantom wallet not found. Please install or unlock Phantom.");
+      }
+
+      if (!payment) {
+        throw new Error("Payment session is not ready yet.");
+      }
+
+      const connected = wallet
+        ? { publicKey: new PublicKey(wallet) }
+        : await provider.connect();
+
+      const payerPublicKey = new PublicKey(connected.publicKey.toString());
+      const recipientPublicKey = new PublicKey(payment.recipient);
+
+      setWallet(payerPublicKey.toBase58());
+
+      const connection = new Connection(rpcUrl, "confirmed");
+      const latestBlockhash = await connection.getLatestBlockhash("confirmed");
+
+      const transaction = new Transaction({
+        feePayer: payerPublicKey,
+        recentBlockhash: latestBlockhash.blockhash,
+      }).add(
+        SystemProgram.transfer({
+          fromPubkey: payerPublicKey,
+          toPubkey: recipientPublicKey,
+          lamports: Number(payment.lamports),
+        })
+      );
+
+      const signedTransaction = await provider.signTransaction(transaction);
+      const rawTransaction = signedTransaction.serialize();
+
+      const txSignature = await connection.sendRawTransaction(rawTransaction, {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+      });
+
+      setSignature(txSignature);
+
+      await connection.confirmTransaction(
+        {
+          signature: txSignature,
+          blockhash: latestBlockhash.blockhash,
+          lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+        },
+        "confirmed"
+      );
+
+      const confirmRes = await fetch("/api/payments/confirm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          paymentId: payment.id,
+          signature: txSignature,
+          walletAddress: payerPublicKey.toBase58(),
+        }),
+      });
+
+      const confirmData = await confirmRes.json().catch(() => null);
+
+      if (!confirmRes.ok) {
+        throw new Error(
+          confirmData?.error ||
+            confirmData?.message ||
+            "Payment sent, but dashboard unlock failed."
+        );
+      }
+
+      router.push(confirmData?.redirectTo || "/app/projects/new");
+      router.refresh();
+    } catch (err: any) {
+      setError(err?.message || "Payment failed.");
     } finally {
-      setLoading(false);
+      setPaying(false);
     }
   }
 
@@ -235,13 +392,40 @@ export default function CryptoCheckoutPage() {
                   </p>
 
                   <h2 className="mt-5 text-2xl font-black">
-                    Ready for Phantom payment
+                    {sessionLoading
+                      ? "Creating payment session"
+                      : "Ready for Phantom payment"}
                   </h2>
+
+                  {error ? (
+                    <div className="mt-5 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
+                      {error}
+                    </div>
+                  ) : null}
 
                   <div className="mt-6 space-y-4">
                     <div className="rounded-xl border border-white/10 bg-black/40 p-4">
+                      <div className="text-sm text-zinc-500">Payment ID</div>
+                      <div className="mt-1 break-all font-black">
+                        {payment?.id || (sessionLoading ? "Creating..." : "—")}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-black/40 p-4">
                       <div className="text-sm text-zinc-500">Amount</div>
-                      <div className="mt-1 font-black">{plan.price}</div>
+                      <div className="mt-1 font-black">{amountLabel}</div>
+
+                      {payment?.solUsdRate ? (
+                        <div className="mt-2 text-xs text-zinc-500">
+                          Live conversion rate: 1 SOL = ${payment.solUsdRate}
+                        </div>
+                      ) : null}
+
+                      {payment?.solUsdRateSource ? (
+                        <div className="mt-1 text-xs text-zinc-600">
+                          Rate source: {payment.solUsdRateSource}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
@@ -249,9 +433,8 @@ export default function CryptoCheckoutPage() {
                         Secure Recipient
                       </div>
                       <div className="mt-2 text-sm leading-6 text-zinc-200">
-                        Payment destination is embedded securely inside the
-                        Phantom transaction and is not displayed publicly on
-                        this page.
+                        Phantom will open and show the exact SOL amount before
+                        you approve the transaction.
                       </div>
                     </div>
                   </div>
@@ -268,10 +451,10 @@ export default function CryptoCheckoutPage() {
                     <button
                       type="button"
                       onClick={payWithPhantom}
-                      disabled={loading}
+                      disabled={paying || sessionLoading || !payment}
                       className="rounded-xl bg-emerald-500 px-5 py-4 font-black text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {loading ? "Processing..." : "Pay With Phantom"}
+                      {paying ? "Sending SOL..." : "Pay With Phantom"}
                     </button>
                   </div>
 
