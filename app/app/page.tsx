@@ -32,14 +32,15 @@ export default function AppHome() {
             </Link>
 
             <Link
-              href="/app/projects/new"
+              href="/app/billing"
               className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 transition hover:bg-cyan-500/15"
             >
               <div className="text-lg font-semibold text-cyan-200">
                 Create Project
               </div>
               <p className="mt-2 text-sm text-zinc-400">
-                Add a new token for verification.
+                Choose a plan, activate billing, then create a new token
+                transparency dashboard.
               </p>
             </Link>
 
@@ -68,7 +69,6 @@ export default function AppHome() {
             </Link>
           </div>
 
-          {/* ✅ ONLY ONE BUTTON LEFT */}
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/transparency"
