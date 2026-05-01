@@ -23,7 +23,9 @@ export default function AppHome() {
               href="/app/projects"
               className="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
             >
-              <div className="text-lg font-semibold text-white">My Projects</div>
+              <div className="text-lg font-semibold text-white">
+                My Projects
+              </div>
               <p className="mt-2 text-sm text-zinc-400">
                 View and manage transparency projects.
               </p>
@@ -66,19 +68,13 @@ export default function AppHome() {
             </Link>
           </div>
 
+          {/* ✅ ONLY ONE BUTTON LEFT */}
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/transparency"
               className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15"
             >
               Public Transparency Directory
-            </Link>
-
-            <Link
-              href="/pricing"
-              className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/15"
-            >
-              View Pricing
             </Link>
           </div>
         </div>
