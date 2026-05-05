@@ -8,8 +8,9 @@ export const revalidate = 0;
 export default async function NewProjectPage() {
   const session = await getSession();
 
+  // 🚫 NO TEST MODE
   if (!session) {
-    redirect("/app/billing");
+    redirect("/pricing");
   }
 
   return <ProjectCreationForm />;

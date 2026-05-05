@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSession, setSessionCookie } from "@/lib/session";
@@ -60,14 +61,16 @@ export async function POST(req: Request) {
     let session = await getSession();
 
     if (!session) {
+      const walletUserId = crypto.randomUUID();
+
       await setSessionCookie({
-        userId: walletAddress,
+        userId: walletUserId,
         walletAddress,
         role: "user",
       });
 
       session = {
-        userId: walletAddress,
+        userId: walletUserId,
         walletAddress,
         role: "user",
         exp: Date.now() + 1000 * 60 * 60 * 24 * 30,
