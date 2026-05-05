@@ -25,30 +25,57 @@ type PaymentSession = {
 
 const LOGO_URL = "https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png";
 
-const PLANS: Record<PlanKey, { name: string; price: string; description: string; bullets: string[] }> = {
+const PLANS: Record<
+  PlanKey,
+  { name: string; price: string; description: string; bullets: string[] }
+> = {
   "launch-pass": {
     name: "Launch Pass",
     price: "$149 one-time",
     description: "For founders launching one token transparency dashboard.",
-    bullets: ["1 project", "Up to 10 wallets", "Public dashboard", "Trust score", "Wallet disclosure"],
+    bullets: [
+      "1 project",
+      "Up to 10 wallets",
+      "Public dashboard",
+      "Trust score",
+      "Wallet disclosure",
+    ],
   },
   starter: {
     name: "Starter",
     price: "$99/mo",
     description: "For early-stage token teams building investor trust.",
-    bullets: ["1 project", "Up to 15 wallets", "Public trust dashboard", "Verified wallet labels", "Basic alerts"],
+    bullets: [
+      "1 project",
+      "Up to 15 wallets",
+      "Public trust dashboard",
+      "Verified wallet labels",
+      "Basic alerts",
+    ],
   },
   growth: {
     name: "Growth",
     price: "$299/mo",
     description: "For active founders managing multiple token projects.",
-    bullets: ["Up to 5 projects", "Up to 50 wallets", "Advanced alerts", "Trust analytics", "Priority support"],
+    bullets: [
+      "Up to 5 projects",
+      "Up to 50 wallets",
+      "Advanced alerts",
+      "Trust analytics",
+      "Priority support",
+    ],
   },
   enterprise: {
     name: "Enterprise",
     price: "Custom",
     description: "For launchpads, agencies, exchanges, and serious teams.",
-    bullets: ["Unlimited projects", "Custom wallet monitoring", "Team workflows", "Custom integrations", "Enterprise support"],
+    bullets: [
+      "Unlimited projects",
+      "Custom wallet monitoring",
+      "Team workflows",
+      "Custom integrations",
+      "Enterprise support",
+    ],
   },
 };
 
@@ -69,6 +96,10 @@ function getPlanKey(value: string): PlanKey {
 
 function maskWallet(wallet: string) {
   return `${wallet.slice(0, 6)}...${wallet.slice(-6)}`;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export default function CryptoCheckoutPage() {
@@ -95,13 +126,17 @@ export default function CryptoCheckoutPage() {
     return `${payment.solAmount} SOL / $${payment.amountUsd}`;
   }, [payment, plan.price]);
 
-  async function createPaymentSession(walletForSession?: string): Promise<PaymentSession> {
+  async function createPaymentSession(
+    walletForSession?: string
+  ): Promise<PaymentSession> {
     setSessionLoading(true);
     setError("");
 
     try {
       if (planKey === "enterprise") {
-        throw new Error("Enterprise plans require manual setup. Please contact support.");
+        throw new Error(
+          "Enterprise plans require manual setup. Please contact support."
+        );
       }
 
       const res = await fetch("/api/payments/create", {
@@ -117,10 +152,16 @@ export default function CryptoCheckoutPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        throw new Error(data?.error || data?.message || "Payment session failed.");
+        throw new Error(
+          data?.error || data?.message || "Payment session failed."
+        );
       }
 
-      if (!data?.payment?.id || !data?.payment?.recipient || !data?.payment?.lamports) {
+      if (
+        !data?.payment?.id ||
+        !data?.payment?.recipient ||
+        !data?.payment?.lamports
+      ) {
         throw new Error("Payment session is missing payment details.");
       }
 
@@ -138,7 +179,9 @@ export default function CryptoCheckoutPage() {
       const provider = (window as any).solana;
 
       if (!provider || !provider.isPhantom) {
-        throw new Error("Phantom wallet not found. Please install or unlock Phantom.");
+        throw new Error(
+          "Phantom wallet not found. Please install or unlock Phantom."
+        );
       }
 
       const resp = await provider.connect();
@@ -154,6 +197,56 @@ export default function CryptoCheckoutPage() {
     }
   }
 
+  async function sendSolPayment(
+    connection: Connection,
+    provider: any,
+    payerPublicKey: PublicKey,
+    activePayment: PaymentSession
+  ) {
+    const recipientPublicKey = new PublicKey(activePayment.recipient);
+
+    const { blockhash, lastValidBlockHeight } =
+      await connection.getLatestBlockhash("finalized");
+
+    const transaction = new Transaction({
+      feePayer: payerPublicKey,
+      blockhash,
+      lastValidBlockHeight,
+    }).add(
+      SystemProgram.transfer({
+        fromPubkey: payerPublicKey,
+        toPubkey: recipientPublicKey,
+        lamports: Number(activePayment.lamports),
+      })
+    );
+
+    const signedTransaction = await provider.signTransaction(transaction);
+
+    const txSignature = await connection.sendRawTransaction(
+      signedTransaction.serialize(),
+      {
+        skipPreflight: false,
+        preflightCommitment: "finalized",
+        maxRetries: 5,
+      }
+    );
+
+    const confirmation = await connection.confirmTransaction(
+      {
+        signature: txSignature,
+        blockhash,
+        lastValidBlockHeight,
+      },
+      "finalized"
+    );
+
+    if (confirmation.value.err) {
+      throw new Error("Transaction failed on-chain.");
+    }
+
+    return txSignature;
+  }
+
   async function payWithPhantom() {
     try {
       setPaying(true);
@@ -163,7 +256,9 @@ export default function CryptoCheckoutPage() {
       const provider = (window as any).solana;
 
       if (!provider || !provider.isPhantom) {
-        throw new Error("Phantom wallet not found. Please install or unlock Phantom.");
+        throw new Error(
+          "Phantom wallet not found. Please install or unlock Phantom."
+        );
       }
 
       const connected = await provider.connect();
@@ -175,40 +270,35 @@ export default function CryptoCheckoutPage() {
       const activePayment =
         payment || (await createPaymentSession(payerWallet));
 
-      const recipientPublicKey = new PublicKey(activePayment.recipient);
+      const connection = new Connection(rpcUrl, "finalized");
 
-      const connection = new Connection(rpcUrl, "confirmed");
-      const latestBlockhash = await connection.getLatestBlockhash("confirmed");
+      let txSignature = "";
 
-      const transaction = new Transaction({
-        feePayer: payerPublicKey,
-        recentBlockhash: latestBlockhash.blockhash,
-      }).add(
-        SystemProgram.transfer({
-          fromPubkey: payerPublicKey,
-          toPubkey: recipientPublicKey,
-          lamports: Number(activePayment.lamports),
-        })
-      );
+      try {
+        txSignature = await sendSolPayment(
+          connection,
+          provider,
+          payerPublicKey,
+          activePayment
+        );
+      } catch (sendError: any) {
+        const msg = String(sendError?.message || sendError || "");
 
-      const signedTransaction = await provider.signTransaction(transaction);
-      const rawTransaction = signedTransaction.serialize();
+        if (msg.toLowerCase().includes("blockhash not found")) {
+          await sleep(800);
 
-      const txSignature = await connection.sendRawTransaction(rawTransaction, {
-        skipPreflight: false,
-        preflightCommitment: "confirmed",
-      });
+          txSignature = await sendSolPayment(
+            connection,
+            provider,
+            payerPublicKey,
+            activePayment
+          );
+        } else {
+          throw sendError;
+        }
+      }
 
       setSignature(txSignature);
-
-      await connection.confirmTransaction(
-        {
-          signature: txSignature,
-          blockhash: latestBlockhash.blockhash,
-          lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-        },
-        "confirmed"
-      );
 
       const confirmRes = await fetch("/api/payments/confirm", {
         method: "POST",
@@ -411,7 +501,8 @@ export default function CryptoCheckoutPage() {
                     <button
                       type="button"
                       onClick={connectPhantom}
-                      className="rounded-xl bg-white px-5 py-4 font-black text-black hover:bg-zinc-200"
+                      disabled={paying}
+                      className="rounded-xl bg-white px-5 py-4 font-black text-black hover:bg-zinc-200 disabled:cursor-wait disabled:opacity-70"
                     >
                       Connect Phantom
                     </button>
