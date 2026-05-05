@@ -1,7 +1,8 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { getSession } from "@/lib/session";
+import { getSession, setSessionCookie } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,6 +16,56 @@ const RPC_URL =
   process.env.SOLANA_RPC_URL ||
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
   "https://api.mainnet-beta.solana.com";
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function uuidFromWallet(walletAddress: string) {
+  const hash = crypto.createHash("sha256").update(walletAddress).digest("hex");
+
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    "4" + hash.slice(13, 16),
+    "8" + hash.slice(17, 20),
+    hash.slice(20, 32),
+  ].join("-");
+}
+
+async function getNormalizedSession() {
+  const session = await getSession();
+
+  if (!session) return null;
+
+  if (isUuid(session.userId)) return session;
+
+  const normalizedUserId = uuidFromWallet(session.walletAddress);
+
+  await setSessionCookie({
+    userId: normalizedUserId,
+    walletAddress: session.walletAddress,
+    role: session.role,
+  });
+
+  try {
+    await supabase.from("profiles").upsert({
+      id: normalizedUserId,
+      wallet_address: session.walletAddress,
+      role: session.role,
+      updated_at: new Date().toISOString(),
+    });
+  } catch {
+    // Ignore if profiles table does not exist or has different columns.
+  }
+
+  return {
+    ...session,
+    userId: normalizedUserId,
+  };
+}
 
 function getProjectLimit(plan: string) {
   switch ((plan || "").toLowerCase()) {
@@ -173,7 +224,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, metadata });
     }
 
-    const session = await getSession();
+    const session = await getNormalizedSession();
 
     if (!session) {
       return NextResponse.json(
@@ -207,12 +258,6 @@ export async function GET(req: Request) {
       {
         ok: false,
         error: error?.message || "Failed to load projects",
-        details: {
-          code: error?.code || null,
-          message: error?.message || null,
-          details: error?.details || null,
-          hint: error?.hint || null,
-        },
       },
       { status: 500 }
     );
@@ -221,7 +266,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await getSession();
+    const session = await getNormalizedSession();
 
     if (!session) {
       return NextResponse.json(
@@ -240,7 +285,8 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error: "No active paid plan found. Please purchase a plan before creating a project.",
+          error:
+            "No active paid plan found. Please purchase a plan before creating a project.",
           redirectTo: "/app/billing",
         },
         { status: 402 }
