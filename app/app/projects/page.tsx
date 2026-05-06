@@ -1,155 +1,117 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 
-function ProjectCard({
-  id,
-  name,
-  symbol,
-  slug,
-}: {
-  id: number;
-  name: string;
-  symbol: string;
-  slug: string;
-}) {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export default function ProjectsPage() {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] transition hover:border-cyan-400/20 hover:bg-white/[0.07]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
-            Project
-          </div>
-          <h2 className="mt-3 text-2xl font-bold text-white">{name}</h2>
-          <p className="mt-2 text-zinc-300">{symbol}</p>
-        </div>
-
-        <div className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-cyan-300">
-          Live
-        </div>
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
-        <div className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">
-          Slug
-        </div>
-        <div className="mt-2 break-all text-white">{slug}</div>
-      </div>
-
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Link
-          href={`/app/projects/${id}`}
-          className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 font-semibold text-white transition hover:bg-white/10"
-        >
-          Open Owner Console
-        </Link>
-
-        <Link
-          href={`/token/${slug}`}
-          className="rounded-xl bg-white px-4 py-3 font-semibold text-black transition hover:bg-zinc-200"
-        >
-          View Public Dashboard
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-export default async function ProjectsPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return <div className="p-8 text-white">Not authenticated</div>;
-  }
-
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, name, slug, symbol")
-    .eq("owner_id", user.id)
-    .order("id", { ascending: false });
-
-  return (
-    <main className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
-      <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-cyan-300">
-            Project Management
-          </div>
-
-          <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl">
-            My Projects
-          </h1>
-
-          <p className="mt-4 max-w-3xl text-zinc-400">
-            Manage your transparency projects, review owner-side details, and
-            open each public dashboard from one place.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/app"
-            className="rounded-xl border border-white/15 bg-white/5 px-5 py-3 font-semibold text-white backdrop-blur-sm transition hover:bg-white/10"
-          >
-            Back to Home
-          </Link>
-
-          <Link
-            href="/app/projects/new"
-            className="rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-zinc-200"
-          >
-            Create New Project
-          </Link>
-        </div>
-      </div>
-
-      <section className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-        <div className="mb-6 flex items-center justify-between gap-4">
+    <main className="min-h-screen bg-[#030712] px-6 py-10 text-white">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <h2 className="text-2xl font-bold">Owner Portfolio</h2>
-            <p className="mt-2 text-sm text-zinc-400">
-              Only projects owned by your account appear here.
+            <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">
+              WEB3MB Projects
+            </p>
+
+            <h1 className="mt-3 text-4xl font-bold">
+              My Transparency Projects
+            </h1>
+
+            <p className="mt-4 max-w-3xl text-zinc-400">
+              Manage token transparency dashboards, disclosures, trust scoring,
+              and monitoring.
             </p>
           </div>
 
-          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
-            Total Projects: {projects?.length || 0}
-          </div>
+          <Link
+            href="/app/billing"
+            className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-6 py-4 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15"
+          >
+            Create Project
+          </Link>
         </div>
 
-        {!projects || projects.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-10 text-center">
-            <p className="text-lg text-zinc-300">No projects yet.</p>
-            <p className="mt-2 text-sm text-zinc-500">
-              Create your first WEB3MB transparency project to get started.
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8">
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
+              Ready To Launch
+            </div>
+
+            <h2 className="mt-6 text-3xl font-bold">
+              Create Your First Transparency Dashboard
+            </h2>
+
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-400">
+              Launch a public-facing WEB3MB trust dashboard with wallet
+              disclosure, trust scoring, alerts, and real-time Solana wallet
+              monitoring.
             </p>
 
-            <div className="mt-6">
+            <div className="mt-8 flex flex-wrap justify-center gap-4">
               <Link
-                href="/app/projects/new"
-                className="rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-zinc-200"
+                href="/app/billing"
+                className="rounded-2xl bg-cyan-500 px-6 py-4 text-sm font-semibold text-black transition hover:bg-cyan-400"
               >
-                Create First Project
+                Activate Billing & Create Project
+              </Link>
+
+              <Link
+                href="/transparency"
+                className="rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                Explore Transparency Hub
               </Link>
             </div>
           </div>
-        ) : (
-          <div className="grid gap-6 xl:grid-cols-2">
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                id={project.id}
-                name={project.name}
-                symbol={project.symbol}
-                slug={project.slug}
-              />
-            ))}
+        </div>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
+          <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
+            <div className="text-sm uppercase tracking-[0.25em] text-cyan-300">
+              Wallet Verification
+            </div>
+
+            <h3 className="mt-4 text-xl font-bold">
+              Public Wallet Disclosure
+            </h3>
+
+            <p className="mt-3 text-sm leading-6 text-zinc-400">
+              Show investors exactly where treasury, liquidity, marketing,
+              development, and team wallets are allocated.
+            </p>
           </div>
-        )}
-      </section>
+
+          <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
+            <div className="text-sm uppercase tracking-[0.25em] text-cyan-300">
+              Trust Scoring
+            </div>
+
+            <h3 className="mt-4 text-xl font-bold">
+              Real-Time Trust Signals
+            </h3>
+
+            <p className="mt-3 text-sm leading-6 text-zinc-400">
+              Generate live transparency scoring based on disclosures, wallet
+              activity, liquidity visibility, and verification status.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-zinc-950 p-6">
+            <div className="text-sm uppercase tracking-[0.25em] text-cyan-300">
+              Live Monitoring
+            </div>
+
+            <h3 className="mt-4 text-xl font-bold">
+              Continuous Blockchain Tracking
+            </h3>
+
+            <p className="mt-3 text-sm leading-6 text-zinc-400">
+              Monitor large transfers, suspicious activity, treasury movement,
+              and trust-impacting events automatically.
+            </p>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }
