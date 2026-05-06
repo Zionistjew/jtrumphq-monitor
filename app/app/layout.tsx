@@ -1,60 +1,112 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-const navItems = [
-  { label: "Dashboard", href: "/app" },
-  { label: "My Projects", href: "/app/projects" },
-  { label: "Create Project", href: "/app/billing", primary: true },
-  { label: "Public Directory", href: "/transparency" },
-  { label: "Wallet Verification", href: "/app/verify-wallets" },
-  { label: "Alert Center", href: "/app/alerts" },
-];
-
 const LOGO_URL =
   "https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png";
 
-export default function AppLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+const workspaceItems = [
+  { label: "Dashboard", href: "/app" },
+  { label: "My Projects", href: "/app/projects", badge: "LIVE" },
+  { label: "Create Project", href: "/app/billing", active: true },
+];
+
+const operationItems = [
+  { label: "Public Directory", href: "/transparency" },
+  { label: "Wallet Verification", href: "/app/verify-wallets" },
+  { label: "Alert Center", href: "/app/alerts" },
+  { label: "Billing", href: "/app/billing", badge: "NEW" },
+];
+
+export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[#030712] text-white">
       <div className="flex min-h-screen">
-        <aside className="hidden w-72 shrink-0 border-r border-white/10 bg-black/30 p-5 lg:block">
-          <div className="mb-8">
+        <aside className="hidden w-[300px] shrink-0 flex-col border-r border-white/10 bg-[#070b1a] lg:flex">
+          <div className="p-6">
             <Link href="/app" className="block">
               <img
                 src={LOGO_URL}
-                alt="WEB3MB"
-                className="h-20 w-auto object-contain"
+                alt="WEB3MB Transparency Center"
+                className="h-24 w-auto object-contain"
               />
             </Link>
 
-            <div className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
-              WEB3MB
+            <div className="mt-5 inline-flex rounded-full border border-cyan-400/40 bg-cyan-400/10 px-4 py-2 text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
+              Enterprise Console
             </div>
 
-            <div className="mt-2 text-lg font-bold">
-              Transparency Center
-            </div>
+            <p className="mt-5 text-sm leading-7 text-zinc-300">
+              Manage token projects, public trust dashboards, wallet disclosures,
+              and compliance workflows from one unified platform.
+            </p>
           </div>
 
-          <nav className="space-y-2">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={
-                  item.primary
-                    ? "block rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15"
-                    : "block rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-200 transition hover:bg-white/10"
-                }
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <div className="border-t border-white/10 px-6 py-5">
+            <div className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
+              Workspace
+            </div>
+
+            <nav className="space-y-3">
+              {workspaceItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={
+                    item.active
+                      ? "flex items-center justify-between rounded-xl bg-white px-4 py-4 text-sm font-black text-black transition hover:bg-zinc-200"
+                      : "flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-black text-white transition hover:bg-white/10"
+                  }
+                >
+                  <span>{item.label}</span>
+                  {item.badge ? (
+                    <span className="rounded-full border border-cyan-400/40 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-cyan-300">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          <div className="border-t border-white/10 px-6 py-5">
+            <div className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
+              Operations
+            </div>
+
+            <nav className="space-y-3">
+              {operationItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-sm font-black text-white transition hover:bg-white/10"
+                >
+                  <span>{item.label}</span>
+                  {item.badge ? (
+                    <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-300">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          <div className="mt-auto border-t border-white/10 p-6">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
+                Support
+              </div>
+
+              <div className="mt-4 text-sm font-black text-white">
+                verify@web3mb.com
+              </div>
+
+              <p className="mt-3 text-xs leading-6 text-zinc-400">
+                Contact us for trust verification, onboarding help, enterprise
+                integrations, and technical support.
+              </p>
+            </div>
+          </div>
         </aside>
 
         <section className="min-w-0 flex-1">{children}</section>
