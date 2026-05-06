@@ -10,13 +10,28 @@ const navItems = [
   { label: "Alert Center", href: "/app/alerts" },
 ];
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+const LOGO_URL =
+  "https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png";
+
+export default function AppLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <div className="min-h-screen bg-[#030712] text-white">
       <div className="flex min-h-screen">
         <aside className="hidden w-72 shrink-0 border-r border-white/10 bg-black/30 p-5 lg:block">
           <div className="mb-8">
-            <div className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
+            <Link href="/app" className="block">
+              <img
+                src={LOGO_URL}
+                alt="WEB3MB"
+                className="h-20 w-auto object-contain"
+              />
+            </Link>
+
+            <div className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
               WEB3MB
             </div>
 
