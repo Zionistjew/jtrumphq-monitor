@@ -17,7 +17,34 @@ const PLAN_PRICES: Record<string, number> = {
   growth: 299,
 };
 
-const SOL_USD_RATE = Number(process.env.SOL_USD_RATE || "150");
+async function getLiveSolUsdRate() {
+  try {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+      { cache: "no-store" }
+    );
+
+    const data = await res.json();
+
+    const rate = Number(data?.solana?.usd);
+
+    if (Number.isFinite(rate) && rate > 0) {
+      return {
+        rate,
+        source: "CoinGecko Live SOL/USD",
+      };
+    }
+  } catch (error) {
+    console.warn("Live SOL price lookup failed:", error);
+  }
+
+  const fallbackRate = Number(process.env.SOL_USD_RATE || "100");
+
+  return {
+    rate: fallbackRate,
+    source: "Fallback SOL_USD_RATE",
+  };
+}
 
 export async function POST(req: Request) {
   try {
@@ -77,7 +104,10 @@ export async function POST(req: Request) {
       };
     }
 
-    const solAmount = Number((amountUsd / SOL_USD_RATE).toFixed(9));
+    const { rate: solUsdRate, source: solUsdRateSource } =
+      await getLiveSolUsdRate();
+
+    const solAmount = Number((amountUsd / solUsdRate).toFixed(9));
     const lamports = Math.ceil(solAmount * 1_000_000_000);
 
     const { data, error } = await supabase
@@ -104,8 +134,8 @@ export async function POST(req: Request) {
         amountUsd,
         solAmount,
         lamports,
-        solUsdRate: SOL_USD_RATE,
-        solUsdRateSource: "ENV_SOL_USD_RATE",
+        solUsdRate,
+        solUsdRateSource,
         recipient: process.env.SOLANA_RECEIVING_WALLET,
       },
     });
