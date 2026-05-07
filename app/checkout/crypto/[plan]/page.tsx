@@ -33,64 +33,31 @@ const PLANS: Record<
     name: "Launch Pass",
     price: "$149 one-time",
     description: "For founders launching one token transparency dashboard.",
-    bullets: [
-      "1 project",
-      "Up to 10 wallets",
-      "Public dashboard",
-      "Trust score",
-      "Wallet disclosure",
-    ],
+    bullets: ["1 project", "Up to 10 wallets", "Public dashboard", "Trust score", "Wallet disclosure"],
   },
   starter: {
     name: "Starter",
     price: "$99/mo",
     description: "For early-stage token teams building investor trust.",
-    bullets: [
-      "1 project",
-      "Up to 15 wallets",
-      "Public trust dashboard",
-      "Verified wallet labels",
-      "Basic alerts",
-    ],
+    bullets: ["1 project", "Up to 15 wallets", "Public trust dashboard", "Verified wallet labels", "Basic alerts"],
   },
   growth: {
     name: "Growth",
     price: "$299/mo",
     description: "For active founders managing multiple token projects.",
-    bullets: [
-      "Up to 5 projects",
-      "Up to 50 wallets",
-      "Advanced alerts",
-      "Trust analytics",
-      "Priority support",
-    ],
+    bullets: ["Up to 5 projects", "Up to 50 wallets", "Advanced alerts", "Trust analytics", "Priority support"],
   },
   enterprise: {
     name: "Enterprise",
     price: "Custom",
     description: "For launchpads, agencies, exchanges, and serious teams.",
-    bullets: [
-      "Unlimited projects",
-      "Custom wallet monitoring",
-      "Team workflows",
-      "Custom integrations",
-      "Enterprise support",
-    ],
+    bullets: ["Unlimited projects", "Custom wallet monitoring", "Team workflows", "Custom integrations", "Enterprise support"],
   },
 };
 
 function getPlanKey(value: string): PlanKey {
   const clean = value.toLowerCase();
-
-  if (
-    clean === "launch-pass" ||
-    clean === "starter" ||
-    clean === "growth" ||
-    clean === "enterprise"
-  ) {
-    return clean;
-  }
-
+  if (clean === "launch-pass" || clean === "starter" || clean === "growth" || clean === "enterprise") return clean;
   return "starter";
 }
 
@@ -112,7 +79,6 @@ export default function CryptoCheckoutPage() {
   const [wallet, setWallet] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentSession | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
-
   const [sessionLoading, setSessionLoading] = useState(false);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
@@ -126,17 +92,13 @@ export default function CryptoCheckoutPage() {
     return `${payment.solAmount} SOL / $${payment.amountUsd}`;
   }, [payment, plan.price]);
 
-  async function createPaymentSession(
-    walletForSession?: string
-  ): Promise<PaymentSession> {
+  async function createPaymentSession(walletForSession?: string): Promise<PaymentSession> {
     setSessionLoading(true);
     setError("");
 
     try {
       if (planKey === "enterprise") {
-        throw new Error(
-          "Enterprise plans require manual setup. Please contact support."
-        );
+        throw new Error("Enterprise plans require manual setup. Please contact support.");
       }
 
       const res = await fetch("/api/payments/create", {
@@ -152,16 +114,10 @@ export default function CryptoCheckoutPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        throw new Error(
-          data?.error || data?.message || "Payment session failed."
-        );
+        throw new Error(data?.error || data?.message || "Payment session failed.");
       }
 
-      if (
-        !data?.payment?.id ||
-        !data?.payment?.recipient ||
-        !data?.payment?.lamports
-      ) {
+      if (!data?.payment?.id || !data?.payment?.recipient || !data?.payment?.lamports) {
         throw new Error("Payment session is missing payment details.");
       }
 
@@ -179,9 +135,7 @@ export default function CryptoCheckoutPage() {
       const provider = (window as any).solana;
 
       if (!provider || !provider.isPhantom) {
-        throw new Error(
-          "Phantom wallet not found. Please install or unlock Phantom."
-        );
+        throw new Error("Phantom wallet not found. Please install or unlock Phantom.");
       }
 
       const resp = await provider.connect();
@@ -256,9 +210,7 @@ export default function CryptoCheckoutPage() {
       const provider = (window as any).solana;
 
       if (!provider || !provider.isPhantom) {
-        throw new Error(
-          "Phantom wallet not found. Please install or unlock Phantom."
-        );
+        throw new Error("Phantom wallet not found. Please install or unlock Phantom.");
       }
 
       const connected = await provider.connect();
@@ -286,7 +238,6 @@ export default function CryptoCheckoutPage() {
 
         if (msg.toLowerCase().includes("blockhash not found")) {
           await sleep(800);
-
           txSignature = await sendSolPayment(
             connection,
             provider,
@@ -335,11 +286,7 @@ export default function CryptoCheckoutPage() {
       <div className="flex min-h-screen">
         <aside className="hidden w-[330px] shrink-0 border-r border-white/10 bg-[#070b1a] lg:flex lg:flex-col">
           <div className="p-8">
-            <img
-              src={LOGO_URL}
-              alt="WEB3MB"
-              className="h-24 w-auto object-contain"
-            />
+            <img src={LOGO_URL} alt="WEB3MB" className="h-24 w-auto object-contain" />
 
             <div className="mt-8 rounded-full border border-cyan-400/40 bg-cyan-400/10 px-5 py-3 text-center text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
               Secure Checkout
@@ -350,24 +297,15 @@ export default function CryptoCheckoutPage() {
             </p>
 
             <nav className="mt-10 space-y-3">
-              <Link
-                href="/app/billing"
-                className="block rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-black hover:bg-white/10"
-              >
+              <Link href="/app/billing" className="block rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-black hover:bg-white/10">
                 Back to Billing
               </Link>
 
-              <Link
-                href="/app"
-                className="block rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-black hover:bg-white/10"
-              >
+              <Link href="/app" className="block rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-black hover:bg-white/10">
                 Owner Dashboard
               </Link>
 
-              <Link
-                href="/transparency"
-                className="block rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-black hover:bg-white/10"
-              >
+              <Link href="/transparency" className="block rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-black hover:bg-white/10">
                 Public Directory
               </Link>
             </nav>
@@ -409,10 +347,7 @@ export default function CryptoCheckoutPage() {
                   </p>
                 </div>
 
-                <Link
-                  href="/app/billing"
-                  className="rounded-xl border border-white/10 bg-white/10 px-5 py-4 text-sm font-black hover:bg-white/15"
-                >
+                <Link href="/app/billing" className="rounded-xl border border-white/10 bg-white/10 px-5 py-4 text-sm font-black hover:bg-white/15">
                   Back to Billing
                 </Link>
               </div>
@@ -462,10 +397,7 @@ export default function CryptoCheckoutPage() {
                     <div className="rounded-xl border border-white/10 bg-black/40 p-4">
                       <div className="text-sm text-zinc-500">Payment ID</div>
                       <div className="mt-1 break-all font-black">
-                        {payment?.id ||
-                          (sessionLoading
-                            ? "Creating..."
-                            : "Connect Phantom first")}
+                        {payment?.id || (sessionLoading ? "Creating..." : "Connect Phantom first")}
                       </div>
                     </div>
 
@@ -491,8 +423,7 @@ export default function CryptoCheckoutPage() {
                         Secure Recipient
                       </div>
                       <div className="mt-2 text-sm leading-6 text-zinc-200">
-                        Phantom will open and show the exact SOL amount before
-                        approval.
+                        Phantom will open and show the exact SOL amount before approval.
                       </div>
                     </div>
                   </div>
@@ -520,20 +451,14 @@ export default function CryptoCheckoutPage() {
                   {wallet ? (
                     <div className="mt-5 rounded-xl border border-white/10 bg-black/30 p-4 text-sm">
                       <div className="text-zinc-500">Connected Wallet</div>
-                      <div className="mt-1 break-all font-black">
-                        {maskWallet(wallet)}
-                      </div>
+                      <div className="mt-1 break-all font-black">{maskWallet(wallet)}</div>
                     </div>
                   ) : null}
 
                   {signature ? (
                     <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
-                      <div className="text-emerald-300">
-                        Transaction Signature
-                      </div>
-                      <div className="mt-1 break-all font-black">
-                        {signature}
-                      </div>
+                      <div className="text-emerald-300">Transaction Signature</div>
+                      <div className="mt-1 break-all font-black">{signature}</div>
                     </div>
                   ) : null}
                 </div>
