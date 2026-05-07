@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { getSession } from "@/lib/session";
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { getSession, setSessionCookie } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -32,16 +32,7 @@ function getSubscriptionEnd(plan: string) {
 
 export async function POST(req: Request) {
   try {
-    const session = await getSession();
-
-    if (!session) {
-      return NextResponse.json(
-        { ok: false, error: "Login required." },
-        { status: 401 }
-      );
-    }
-
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
 
     const paymentId = String(body.paymentId || "").trim();
     const signature = String(body.signature || "").trim();
@@ -49,7 +40,10 @@ export async function POST(req: Request) {
 
     if (!paymentId || !signature || !walletAddress) {
       return NextResponse.json(
-        { ok: false, error: "Missing paymentId, signature, or walletAddress." },
+        {
+          ok: false,
+          error: "Missing paymentId, signature, or walletAddress.",
+        },
         { status: 400 }
       );
     }
@@ -58,20 +52,21 @@ export async function POST(req: Request) {
       .from("payment_sessions")
       .select("*")
       .eq("id", paymentId)
-      .eq("user_id", session.userId)
       .maybeSingle();
 
     if (paymentError) throw paymentError;
 
     if (!payment) {
       return NextResponse.json(
-        { ok: false, error: "Payment session not found." },
+        {
+          ok: false,
+          error:
+            "Payment record not found. The SOL transaction may have succeeded, but the checkout session could not be matched.",
+          paymentId,
+          signature,
+        },
         { status: 404 }
       );
-    }
-
-    if (payment.status === "confirmed") {
-      return NextResponse.json({ ok: true, alreadyConfirmed: true });
     }
 
     const connection = new Connection(RPC_URL, "confirmed");
@@ -83,21 +78,27 @@ export async function POST(req: Request) {
 
     if (!tx) {
       return NextResponse.json(
-        { ok: false, error: "Transaction not found or not confirmed yet." },
+        {
+          ok: false,
+          error: "Transaction not found or not confirmed yet. Try again in a few seconds.",
+        },
         { status: 400 }
       );
     }
 
     if (tx.meta?.err) {
       return NextResponse.json(
-        { ok: false, error: "Transaction failed on-chain." },
+        {
+          ok: false,
+          error: "Transaction failed on-chain.",
+        },
         { status: 400 }
       );
     }
 
     const expectedReceiver = new PublicKey(RECEIVING_WALLET).toBase58();
     const expectedSender = new PublicKey(walletAddress).toBase58();
-    const expectedLamports = Number(payment.lamports);
+    const expectedLamports = Number(payment.lamports || 0);
 
     let validTransfer = false;
 
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
         instruction?.parsed?.type === "transfer"
       ) {
         const info = instruction.parsed.info;
+
         const source = String(info.source);
         const destination = String(info.destination);
         const lamports = Number(info.lamports || 0);
@@ -135,7 +137,18 @@ export async function POST(req: Request) {
     }
 
     const nowIso = new Date().toISOString();
-    const endsAt = getSubscriptionEnd(payment.plan);
+    const endsAt = getSubscriptionEnd(String(payment.plan || "starter"));
+
+    const session = await getSession();
+
+    const userId =
+      payment.user_id || session?.userId || crypto.randomUUID();
+
+    await setSessionCookie({
+      userId,
+      walletAddress,
+      role: "user",
+    });
 
     const { error: updatePaymentError } = await supabase
       .from("payment_sessions")
@@ -153,7 +166,7 @@ export async function POST(req: Request) {
       .from("subscriptions")
       .upsert(
         {
-          user_id: session.userId,
+          user_id: userId,
           wallet_address: walletAddress,
           plan: payment.plan,
           status: "active",
