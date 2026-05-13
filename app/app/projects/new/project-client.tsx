@@ -65,7 +65,11 @@ export default function ProjectCreationForm() {
     }, 0);
   }, [wallets]);
 
-  function updateWallet(index: number, field: keyof WalletInput, value: string | boolean) {
+  function updateWallet(
+    index: number,
+    field: keyof WalletInput,
+    value: string | boolean
+  ) {
     setWallets((current) =>
       current.map((wallet, i) =>
         i === index ? { ...wallet, [field]: value } : wallet
@@ -173,11 +177,17 @@ export default function ProjectCreationForm() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
+        if (data?.redirectTo) {
+          setError(`${data?.error || "Action required."} Redirecting...`);
+          setTimeout(() => router.push(data.redirectTo), 900);
+          return;
+        }
+
         throw new Error(data?.error || data?.message || "Project creation failed.");
       }
 
       setSuccess("Trust dashboard created successfully.");
-      router.push(`/token/${cleanSlug}`);
+      router.push(data?.redirect || `/token/${cleanSlug}`);
       router.refresh();
     } catch (err: any) {
       setError(err?.message || "Something went wrong while creating the project.");
@@ -187,13 +197,13 @@ export default function ProjectCreationForm() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6 shadow-2xl">
-        <p className="mb-3 text-xs font-bold uppercase tracking-[0.35em] text-cyan-400">
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-5 shadow-2xl sm:p-6">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.3em] text-cyan-400 sm:text-xs">
           WEB3MB Auto Onboarding
         </p>
 
-        <h1 className="text-3xl font-black tracking-tight text-white">
+        <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
           Paste Mint. Add Wallets. Generate Trust Dashboard.
         </h1>
 
@@ -206,7 +216,7 @@ export default function ProjectCreationForm() {
 
       <form
         onSubmit={handleSubmit}
-        className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6 shadow-2xl"
+        className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4 shadow-2xl sm:p-6"
       >
         {error ? (
           <div className="mb-5 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">
@@ -225,26 +235,26 @@ export default function ProjectCreationForm() {
             Token Mint Address
           </label>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <input
               value={mint}
               onChange={(e) => setMint(e.target.value)}
               placeholder="Paste Solana token mint address"
-              className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
             />
 
             <button
               type="button"
               onClick={handleAutoFill}
               disabled={autoLoading}
-              className="rounded-lg bg-cyan-400 px-5 py-3 text-sm font-black text-black hover:bg-cyan-300 disabled:opacity-60"
+              className="rounded-lg bg-cyan-400 px-5 py-3 text-sm font-black text-black hover:bg-cyan-300 disabled:opacity-60 sm:w-auto"
             >
               {autoLoading ? "Loading..." : "Auto-Fill"}
             </button>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-5 md:grid-cols-2">
+        <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <div>
             <label className="mb-2 block text-xs font-bold text-zinc-200">
               Project Name
@@ -298,7 +308,7 @@ export default function ProjectCreationForm() {
           />
         </div>
 
-        <section className="mt-8 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5">
+        <section className="mt-8 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 sm:p-5">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-400">
@@ -333,7 +343,7 @@ export default function ProjectCreationForm() {
             {wallets.map((wallet, index) => (
               <div
                 key={index}
-                className="rounded-2xl border border-zinc-800 bg-black/70 p-5"
+                className="rounded-2xl border border-zinc-800 bg-black/70 p-4 sm:p-5"
               >
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <h3 className="font-black text-white">Wallet #{index + 1}</h3>
@@ -347,7 +357,7 @@ export default function ProjectCreationForm() {
                   </button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-xs font-bold text-zinc-300">
                       Wallet Label
@@ -390,7 +400,7 @@ export default function ProjectCreationForm() {
                   />
                 </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-xs font-bold text-zinc-300">
                       Allocation %
@@ -422,7 +432,7 @@ export default function ProjectCreationForm() {
                   <textarea
                     value={wallet.purpose}
                     onChange={(e) => updateWallet(index, "purpose", e.target.value)}
-                    placeholder="Example: Used for treasury, operations, liquidity, development, rewards, or investor protection."
+                    placeholder="Example: Treasury, operations, liquidity, development, rewards, or investor protection."
                     rows={3}
                     className="w-full resize-y rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
                   />

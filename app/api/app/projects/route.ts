@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { Connection, PublicKey } from "@solana/web3.js";
 import { getSession, setSessionCookie } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +10,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const RPC_URL =
-  process.env.SOLANA_RPC_URL ||
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  "https://api.mainnet-beta.solana.com";
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -50,21 +44,18 @@ async function getNormalizedSession() {
     role: session.role,
   });
 
-  try {
-    await supabase.from("profiles").upsert({
-      id: normalizedUserId,
-      wallet_address: session.walletAddress,
-      role: session.role,
-      updated_at: new Date().toISOString(),
-    });
-  } catch {
-    // Ignore if profiles table does not exist or has different columns.
-  }
-
   return {
     ...session,
     userId: normalizedUserId,
   };
+}
+
+function cleanSlug(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function getProjectLimit(plan: string) {
@@ -81,109 +72,6 @@ function getProjectLimit(plan: string) {
   }
 }
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-}
-
-function cleanWallets(input: any) {
-  if (!Array.isArray(input)) return [];
-
-  return input
-    .map((wallet) => ({
-      label: String(wallet?.label || "").trim(),
-      category: String(wallet?.category || "Other").trim(),
-      address: String(wallet?.address || "").trim(),
-      allocation:
-        wallet?.allocation === null ||
-        wallet?.allocation === undefined ||
-        wallet?.allocation === ""
-          ? null
-          : Number(wallet.allocation),
-      purpose: String(wallet?.purpose || "").trim(),
-      verified: Boolean(wallet?.verified),
-    }))
-    .filter((wallet) => wallet.address || wallet.label || wallet.purpose);
-}
-
-async function getTokenMetadata(mint: string) {
-  const fallback = {
-    mint,
-    name: "",
-    symbol: "",
-    decimals: null as number | null,
-    supply: null as string | null,
-    slug: "",
-    description: "",
-    source: "fallback",
-  };
-
-  try {
-    const response = await fetch(RPC_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "web3mb-get-asset",
-        method: "getAsset",
-        params: { id: mint },
-      }),
-      cache: "no-store",
-    });
-
-    const data = await response.json().catch(() => null);
-    const result = data?.result;
-
-    const name = result?.content?.metadata?.name || "";
-    const symbol = result?.content?.metadata?.symbol || "";
-    const description = result?.content?.metadata?.description || "";
-
-    if (name || symbol) {
-      return {
-        mint,
-        name,
-        symbol,
-        decimals: result?.token_info?.decimals ?? null,
-        supply: result?.token_info?.supply
-          ? String(result.token_info.supply)
-          : null,
-        slug: slugify(name || symbol || `token-${mint.slice(0, 6)}`),
-        description,
-        source: "helius-das",
-      };
-    }
-  } catch (error) {
-    console.warn("Helius DAS metadata lookup failed:", error);
-  }
-
-  try {
-    const connection = new Connection(RPC_URL, "confirmed");
-    const mintPubkey = new PublicKey(mint);
-    const account = await connection.getParsedAccountInfo(mintPubkey);
-
-    const parsed: any = account.value?.data;
-    const info = parsed?.parsed?.info;
-
-    return {
-      ...fallback,
-      decimals: typeof info?.decimals === "number" ? info.decimals : null,
-      supply: info?.supply ? String(info.supply) : null,
-      name: `Token ${mint.slice(0, 6)}`,
-      symbol: "TOKEN",
-      slug: slugify(`token-${mint.slice(0, 6)}`),
-      source: "solana-parsed-account",
-    };
-  } catch (error) {
-    console.warn("Parsed mint lookup failed:", error);
-  }
-
-  return fallback;
-}
-
 async function getActiveSubscription(session: {
   userId: string;
   walletAddress: string;
@@ -193,54 +81,88 @@ async function getActiveSubscription(session: {
     return {
       plan: "enterprise",
       status: "active",
+      user_id: session.userId,
+      wallet_address: session.walletAddress,
     };
   }
 
   const nowIso = new Date().toISOString();
 
-  const { data, error } = await supabase
+  const { data: byUser, error: userError } = await supabase
     .from("subscriptions")
     .select("*")
+    .eq("user_id", session.userId)
     .eq("status", "active")
-    .or(`user_id.eq.${session.userId},wallet_address.eq.${session.walletAddress}`)
-    .or(`ends_at.is.null,ends_at.gt.${nowIso}`)
-    .order("created_at", { ascending: false })
+    .order("starts_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (error) throw error;
+  if (userError) throw userError;
 
-  return data;
+  if (
+    byUser &&
+    (!byUser.ends_at || String(byUser.ends_at) > nowIso)
+  ) {
+    return byUser;
+  }
+
+  const { data: byWallet, error: walletError } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("wallet_address", session.walletAddress)
+    .eq("status", "active")
+    .order("starts_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (walletError) throw walletError;
+
+  if (
+    byWallet &&
+    (!byWallet.ends_at || String(byWallet.ends_at) > nowIso)
+  ) {
+    return byWallet;
+  }
+
+  return null;
 }
 
-export async function GET(req: Request) {
+function cleanWallets(input: any) {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .map((wallet) => ({
+      label: String(wallet?.label || "").trim(),
+      category: String(wallet?.category || "Treasury").trim(),
+      address: String(wallet?.address || "").trim(),
+      purpose: String(wallet?.purpose || "").trim(),
+      allocation:
+        wallet?.allocation === null ||
+        wallet?.allocation === undefined ||
+        wallet?.allocation === ""
+          ? 0
+          : Number(wallet.allocation),
+      verified: Boolean(wallet?.verified),
+    }))
+    .filter((wallet) => wallet.address || wallet.label || wallet.purpose);
+}
+
+export async function GET() {
   try {
-    const url = new URL(req.url);
-    const mint = url.searchParams.get("mint");
-    const lookup = url.searchParams.get("lookup");
-
-    if (lookup === "metadata" && mint) {
-      const metadata = await getTokenMetadata(mint);
-      return NextResponse.json({ ok: true, metadata });
-    }
-
     const session = await getNormalizedSession();
 
     if (!session) {
       return NextResponse.json(
-        { ok: false, error: "Authentication required" },
+        { ok: false, error: "Unauthorized." },
         { status: 401 }
       );
     }
 
-    let query = supabase
+    const query = supabase
       .from("projects")
       .select("*")
+      .eq("user_id", session.userId)
       .order("created_at", { ascending: false });
-
-    if (session.role !== "admin") {
-      query = query.eq("user_id", session.userId);
-    }
 
     const { data, error } = await query;
 
@@ -252,12 +174,10 @@ export async function GET(req: Request) {
       projects: data || [],
     });
   } catch (error: any) {
-    console.error("GET /api/app/projects error:", error);
-
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Failed to load projects",
+        error: error?.message || "Failed to load projects.",
       },
       { status: 500 }
     );
@@ -272,7 +192,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Authentication required. Please connect/login first.",
+          error: "Unauthorized. Please complete billing again.",
           redirectTo: "/app/billing",
         },
         { status: 401 }
@@ -285,43 +205,33 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error:
-            "No active paid plan found. Please purchase a plan before creating a project.",
+          error: "No active paid plan found. Please activate billing first.",
           redirectTo: "/app/billing",
         },
         { status: 402 }
       );
     }
 
-    const plan = String(subscription.plan || "").toLowerCase();
+    const plan = String(subscription.plan || "starter").toLowerCase();
     const projectLimit = getProjectLimit(plan);
 
-    if (projectLimit <= 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Invalid subscription plan. Please contact support.",
-          redirectTo: "/app/billing",
-        },
-        { status: 403 }
-      );
-    }
-
-    const { count, error: countError } = await supabase
+    const { count: projectCount, error: countError } = await supabase
       .from("projects")
       .select("*", { count: "exact", head: true })
       .eq("user_id", session.userId);
 
     if (countError) throw countError;
 
-    if ((count || 0) >= projectLimit) {
+    if ((projectCount || 0) >= projectLimit) {
       return NextResponse.json(
         {
           ok: false,
           error: "Project limit reached. Please upgrade your plan.",
-          plan,
-          projectLimit,
-          currentProjects: count || 0,
+          billing: {
+            plan,
+            project_limit: projectLimit,
+            current_projects: projectCount || 0,
+          },
           redirectTo: "/app/billing",
         },
         { status: 403 }
@@ -329,78 +239,95 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const mint = String(body.mint || "").trim();
 
-    if (!mint) {
+    const name = String(body.name || "").trim();
+    const symbol = String(body.symbol || "").trim();
+    const mint = String(body.mint || "").trim();
+    const description = String(body.description || "").trim();
+    const slug = cleanSlug(body.slug || name || symbol);
+
+    if (!name || !symbol || !slug || !mint) {
       return NextResponse.json(
-        { ok: false, error: "Token mint address is required." },
+        {
+          ok: false,
+          error: "Project name, symbol, slug, and mint address are required.",
+        },
         { status: 400 }
       );
     }
 
-    const metadata = await getTokenMetadata(mint);
+    const { data: existingSlug, error: slugError } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
 
-    const name =
-      String(body.name || "").trim() ||
-      metadata.name ||
-      `Token ${mint.slice(0, 6)}`;
+    if (slugError) throw slugError;
 
-    const symbol =
-      String(body.symbol || "").trim() || metadata.symbol || "TOKEN";
+    if (existingSlug) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "This project slug already exists. Please choose another slug.",
+        },
+        { status: 409 }
+      );
+    }
 
-    const slug =
-      slugify(String(body.slug || "").trim()) ||
-      metadata.slug ||
-      slugify(`${symbol}-${mint.slice(0, 6)}`);
+    const { data: project, error: insertError } = await supabase
+      .from("projects")
+      .insert({
+        user_id: session.userId,
+        name,
+        symbol,
+        slug,
+        mint,
+        description,
+        theme: body.theme || {
+          primary: "cyan",
+          accent: "blue",
+        },
+      })
+      .select("*")
+      .single();
 
-    const description =
-      String(body.description || "").trim() ||
-      metadata.description ||
-      `WEB3MB transparency profile for ${name}.`;
+    if (insertError) throw insertError;
 
     const wallets = cleanWallets(body.wallets);
 
-    const { data, error } = await supabase
-      .from("projects")
-      .insert({
-        slug,
-        name,
-        symbol,
-        mint,
-        description,
-        user_id: session.userId,
-        theme: {
-          primary: "cyan",
-          accent: "zinc",
-        },
-        wallets,
-      })
-      .select()
-      .single();
+    if (wallets.length > 0) {
+      const walletRows = wallets.map((wallet) => ({
+        project_id: project.id,
+        label: wallet.label || "Wallet",
+        category: wallet.category || "Treasury",
+        address: wallet.address,
+        purpose: wallet.purpose || "",
+        allocation: Number(wallet.allocation || 0),
+        verified: Boolean(wallet.verified),
+      }));
 
-    if (error) throw error;
+      const { error: walletError } = await supabase
+        .from("project_wallets")
+        .insert(walletRows);
+
+      if (walletError) throw walletError;
+    }
 
     return NextResponse.json({
       ok: true,
-      project: data,
-      metadata,
-      plan,
-      projectLimit,
-      currentProjects: (count || 0) + 1,
+      project,
+      redirect: `/token/${project.slug}`,
+      billing: {
+        plan,
+        project_limit: projectLimit,
+        current_projects: (projectCount || 0) + 1,
+      },
     });
   } catch (error: any) {
-    console.error("POST /api/app/projects error FULL:", error);
-
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || "Failed to create project",
-        details: {
-          code: error?.code || null,
-          message: error?.message || null,
-          details: error?.details || null,
-          hint: error?.hint || null,
-        },
+        error: error?.message || "Failed to create project.",
       },
       { status: 500 }
     );
