@@ -50,6 +50,19 @@ async function getNormalizedSession() {
   };
 }
 
+async function ensureProfile(userId: string) {
+  const { error } = await supabase.from("profiles").upsert(
+    {
+      id: userId,
+    },
+    {
+      onConflict: "id",
+    }
+  );
+
+  if (error) throw error;
+}
+
 function cleanSlug(value: string) {
   return String(value || "")
     .toLowerCase()
@@ -99,10 +112,7 @@ async function getActiveSubscription(session: {
 
   if (userError) throw userError;
 
-  if (
-    byUser &&
-    (!byUser.ends_at || String(byUser.ends_at) > nowIso)
-  ) {
+  if (byUser && (!byUser.ends_at || String(byUser.ends_at) > nowIso)) {
     return byUser;
   }
 
@@ -117,10 +127,7 @@ async function getActiveSubscription(session: {
 
   if (walletError) throw walletError;
 
-  if (
-    byWallet &&
-    (!byWallet.ends_at || String(byWallet.ends_at) > nowIso)
-  ) {
+  if (byWallet && (!byWallet.ends_at || String(byWallet.ends_at) > nowIso)) {
     return byWallet;
   }
 
@@ -158,13 +165,13 @@ export async function GET() {
       );
     }
 
-    const query = supabase
+    await ensureProfile(session.userId);
+
+    const { data, error } = await supabase
       .from("projects")
       .select("*")
       .eq("user_id", session.userId)
       .order("created_at", { ascending: false });
-
-    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -198,6 +205,8 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
+
+    await ensureProfile(session.userId);
 
     const subscription = await getActiveSubscription(session);
 
