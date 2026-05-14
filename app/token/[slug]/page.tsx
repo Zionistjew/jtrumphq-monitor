@@ -197,13 +197,13 @@ function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-sm">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-sm sm:rounded-3xl sm:p-6">
       <div className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">
         {label}
       </div>
 
       <div
-        className="mt-4 truncate text-4xl font-semibold text-white"
+        className="mt-3 truncate text-3xl font-semibold text-white sm:mt-4 sm:text-4xl"
         title={String(value)}
       >
         {value}
@@ -224,13 +224,13 @@ function MetricTile({
   value: string | number;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
       <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
         {label}
       </div>
 
       <div
-        className="mt-3 truncate text-2xl font-semibold text-white"
+        className="mt-3 truncate text-xl font-semibold text-white sm:text-2xl"
         title={String(value)}
       >
         {value}
@@ -304,15 +304,15 @@ export default async function TokenPublicPage({
 
   return (
     <div className="min-h-screen bg-[#050816] text-white">
-      <div className="mx-auto max-w-[1700px] px-4 py-8 md:px-8 xl:px-12">
-        <div className="rounded-[2rem] border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] p-6 shadow-2xl md:p-8 xl:p-10">
+      <div className="mx-auto max-w-[1700px] px-3 py-5 sm:px-4 md:px-8 xl:px-12">
+        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] p-4 shadow-2xl sm:rounded-[2rem] sm:p-6 md:p-8 xl:p-10">
           <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0 max-w-4xl">
               <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
                 WEB3MB / Public Transparency Layer
               </div>
 
-              <h1 className="mt-4 break-words text-4xl font-semibold tracking-tight text-white md:text-5xl xl:text-6xl">
+              <h1 className="mt-4 break-words text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl xl:text-6xl">
                 {tokenData.name}
               </h1>
 
@@ -363,7 +363,7 @@ export default async function TokenPublicPage({
             </div>
           </div>
 
-          <div className="mt-10 grid gap-5 md:grid-cols-2 2xl:grid-cols-4">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
             <StatCard
               label="Disclosed Wallets"
               value={wallets.length}
@@ -389,7 +389,7 @@ export default async function TokenPublicPage({
             />
           </div>
 
-          <div className="mt-10 grid gap-6 2xl:grid-cols-[minmax(0,1.25fr)_minmax(430px,0.75fr)]">
+          <div className="mt-8 grid gap-5 2xl:grid-cols-[minmax(0,1.25fr)_minmax(430px,0.75fr)]">
             <div className="min-w-0 rounded-[2rem] border border-white/10 bg-black/20 p-7 xl:p-8">
               <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                 Public Project Snapshot
@@ -570,12 +570,12 @@ export default async function TokenPublicPage({
                   return (
                     <div
                       key={`${wallet.address}-${index}`}
-                      className="rounded-[2rem] border border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.02] p-6 xl:p-7"
+                      className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.02] p-4 sm:rounded-[2rem] sm:p-6 xl:p-7"
                     >
-                      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.95fr)]">
+                      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.95fr)]">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-3">
-                            <h3 className="min-w-0 break-words text-3xl font-semibold text-white">
+                            <h3 className="min-w-0 break-words text-2xl font-semibold text-white sm:text-3xl">
                               {wallet.label || "Unnamed Wallet"}
                             </h3>
 
@@ -602,7 +602,7 @@ export default async function TokenPublicPage({
                             ) : null}
                           </div>
 
-                          <div className="mt-5 break-all text-xl text-zinc-300 md:text-2xl">
+                          <div className="mt-4 break-all text-sm text-zinc-300 sm:text-lg md:text-2xl">
                             {wallet.address || "—"}
                           </div>
 
@@ -616,7 +616,7 @@ export default async function TokenPublicPage({
                           ) : null}
                         </div>
 
-                        <div className="grid min-w-0 grid-cols-2 gap-4 2xl:grid-cols-4">
+                        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
                           <MetricTile
                             label="Declared"
                             value={formatNumber(declared, 0)}
@@ -691,7 +691,7 @@ export default async function TokenPublicPage({
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             <StatCard
               label="Low SOL Wallets"
               value={lowSolWallets}
