@@ -126,7 +126,7 @@ function SummaryCard({
 function PublicSidebar() {
   return (
     <aside className="hidden min-h-screen w-[310px] shrink-0 border-r border-white/10 bg-[#050816] xl:block">
-      <div className="sticky top-0 px-6 py-8">
+      <div className="sticky top-0 px-4 py-5 sm:px-6 sm:py-8">
         <div>
           <img
             src="https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png"
@@ -319,7 +319,7 @@ export default function TransparencyPage() {
                 <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                   WEB3MB / PUBLIC TRUST LAYER
                 </div>
-                <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white">
+                <h1 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight text-white">
                   Transparency Leaderboard
                 </h1>
                 <p className="mt-4 max-w-4xl text-sm leading-7 text-zinc-300">
@@ -346,7 +346,7 @@ export default function TransparencyPage() {
               </div>
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
               <SummaryCard label="Ranked Projects" value={loading ? "—" : summary.total} />
               <SummaryCard label="Average Score" value={loading ? "—" : `${summary.avgScore}/100`} />
               <SummaryCard label="Low Risk" value={loading ? "—" : summary.lowRisk} onClick={() => setRiskFilter(riskFilter === "Low" ? "All" : "Low")} active={riskFilter === "Low"} />
@@ -369,7 +369,7 @@ export default function TransparencyPage() {
                   />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                   <div>
                     <div className="text-xs uppercase tracking-[0.16em] text-zinc-500">
                       Risk Filter
@@ -418,9 +418,9 @@ export default function TransparencyPage() {
               <div className="text-xs uppercase tracking-[0.2em] text-cyan-300">
                 Featured Projects
               </div>
-              <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {loading ? (
-                  <div className="col-span-full rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-zinc-400">
+                  <div className="col-span-full rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-8 text-center text-zinc-400">
                     Loading featured projects...
                   </div>
                 ) : featured.length > 0 ? (
@@ -449,7 +449,7 @@ export default function TransparencyPage() {
                         </div>
 
                         <div className="shrink-0 text-right">
-                          <div className="text-4xl font-semibold text-amber-300">
+                          <div className="text-3xl sm:text-4xl font-semibold text-amber-300">
                             {project.score}
                           </div>
                           <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
@@ -458,7 +458,7 @@ export default function TransparencyPage() {
                         </div>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-4 gap-3">
+                      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                           <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Wallets</div>
                           <div className="mt-1 text-sm font-semibold text-white">{project.stats?.trackedWallets ?? 0}</div>
@@ -485,15 +485,15 @@ export default function TransparencyPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="col-span-full rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-zinc-400">
+                  <div className="col-span-full rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-8 text-center text-zinc-400">
                     No projects match the current filters.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,2fr)_360px]">
-              <div className="min-w-0 rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] shadow-2xl">
+            <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,2fr)_360px]">
+              <div className="min-w-0 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] shadow-2xl sm:rounded-3xl">
                 <div className="border-b border-white/10 px-6 py-5">
                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
@@ -510,8 +510,8 @@ export default function TransparencyPage() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1100px]">
+                <div className="overflow-x-auto rounded-2xl">
+                  <table className="w-full min-w-[920px] text-sm">
                     <thead className="bg-white/[0.03]">
                       <tr className="text-left text-xs uppercase tracking-[0.18em] text-zinc-500">
                         <th className="px-6 py-4">Rank</th>
@@ -577,13 +577,13 @@ export default function TransparencyPage() {
                             {expandedProjectId === project.projectId ? (
                               <tr className="border-t border-white/5 bg-black/20">
                                 <td colSpan={9} className="px-6 py-6">
-                                  <div className="grid gap-6 2xl:grid-cols-[1fr_1.2fr]">
+                                  <div className="grid gap-4 2xl:grid-cols-[1fr_1.2fr]">
                                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                                       <div className="text-xs uppercase tracking-[0.18em] text-cyan-300">
                                         Inline Project Metrics
                                       </div>
 
-                                      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                                         <div className="rounded-xl border border-white/10 bg-black/20 p-4">
                                           <div className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">Tracked Wallets</div>
                                           <div className="mt-2 text-2xl font-semibold text-white">{project.stats?.trackedWallets ?? 0}</div>
