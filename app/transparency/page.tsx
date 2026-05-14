@@ -153,7 +153,6 @@ function PublicSidebar({ onNavigate }: { onNavigate?: () => void }) {
             <div className="space-y-3">
               <Link
                 href="/transparency"
-                onClick={onNavigate}
                 className="block rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-black"
               >
                 Transparency Leaderboard
@@ -161,7 +160,6 @@ function PublicSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
               <Link
                 href="/app"
-                onClick={onNavigate}
                 className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 Owner Hub
@@ -169,7 +167,6 @@ function PublicSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
               <Link
                 href="/app/projects/new"
-                onClick={onNavigate}
                 className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 Create Project
@@ -337,14 +334,12 @@ export default function TransparencyPage() {
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/app"
-                onClick={onNavigate}
                   className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15"
                 >
                   Open Owner Hub
                 </Link>
                 <Link
                   href="/app/projects/new"
-                onClick={onNavigate}
                   className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/15"
                 >
                   Create Project
@@ -716,12 +711,10 @@ export default function TransparencyPage() {
                   </p>
 
                   <div className="mt-5 flex flex-wrap gap-3">
-                    <Link href="/app/projects/new"
-                onClick={onNavigate} className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/15">
+                    <Link href="/app/projects/new" className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/15">
                       Create Project
                     </Link>
-                    <Link href="/app"
-                onClick={onNavigate} className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15">
+                    <Link href="/app" className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15">
                       Open Owner Hub
                     </Link>
                   </div>
