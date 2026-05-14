@@ -309,10 +309,47 @@ export default function TransparencyPage() {
   const featured = filteredProjects.slice(0, 3);
 
   return (
-    <div className="flex min-h-screen bg-[#030712] text-white">
-      <div className="hidden xl:block"><PublicSidebar /></div>
+    <div className="min-h-screen bg-[#030712] text-white">
+      <div className="sticky top-0 z-50 flex items-center justify-between border-b border-white/10 bg-[#050816]/95 px-4 py-3 backdrop-blur xl:hidden">
+        <Link href="/transparency">
+          <img
+            src="https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png"
+            alt="WEB3MB"
+            className="h-12 w-auto object-contain"
+          />
+        </Link>
 
-      <main className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(true)}
+          className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-white"
+        >
+          Menu
+        </button>
+      </div>
+
+      {mobileMenuOpen ? (
+        <div className="fixed inset-0 z-[100] bg-black/70 xl:hidden">
+          <div className="flex h-full w-[88vw] max-w-sm flex-col overflow-y-auto border-r border-white/10 bg-[#050816]">
+            <div className="flex items-center justify-end border-b border-white/10 p-4">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black"
+              >
+                Close
+              </button>
+            </div>
+
+            <PublicSidebar />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex min-h-screen">
+        <div className="hidden xl:block"><PublicSidebar /></div>
+
+        <main className="min-w-0 flex-1">
         <div className="mx-auto max-w-[1600px] px-6 py-8">
           <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] p-6 shadow-2xl">
             <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
@@ -743,7 +780,8 @@ export default function TransparencyPage() {
             ) : null}
           </div>
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
