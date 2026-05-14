@@ -125,7 +125,7 @@ function SummaryCard({
 
 function PublicSidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <aside className="min-h-screen w-[310px] shrink-0 border-r border-white/10 bg-[#050816] xl:block hidden">
+    <aside className="min-h-screen w-[310px] shrink-0 border-r border-white/10 bg-[#050816]">
       <div className="sticky top-0 px-4 py-5 sm:px-6 sm:py-8">
         <div>
           <img
@@ -310,7 +310,7 @@ export default function TransparencyPage() {
 
   return (
     <div className="flex min-h-screen bg-[#030712] text-white">
-      <PublicSidebar />
+      <div className="hidden xl:block"><PublicSidebar /></div>
 
       <main className="min-w-0 flex-1">
         <div className="mx-auto max-w-[1600px] px-6 py-8">
