@@ -20,7 +20,6 @@ type ProjectWalletRow = {
   address: string;
   purpose: string | null;
   allocation: number | null;
-  verified?: boolean | null;
 };
 
 type LegacyWallet = {
@@ -29,7 +28,6 @@ type LegacyWallet = {
   address?: string;
   purpose?: string;
   allocation?: number;
-  verified?: boolean;
 };
 
 const supabase = createClient(
@@ -75,7 +73,6 @@ function normalizeLegacyWallets(wallets: unknown): ProjectWalletRow[] {
         Number.isFinite(wallet.allocation)
           ? wallet.allocation
           : 0,
-      verified: Boolean(wallet.verified),
     }));
 }
 
@@ -190,7 +187,7 @@ export async function GET(
 
     const { data: normalizedWallets, error: walletRowsError } = await supabase
       .from("project_wallets")
-      .select("label, category, address, purpose, allocation, verified")
+      .select("label, category, address, purpose, allocation")
       .eq("project_id", project.id);
 
     if (walletRowsError) {
