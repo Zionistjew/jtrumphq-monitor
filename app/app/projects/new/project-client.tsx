@@ -197,13 +197,13 @@ export default function ProjectCreationForm() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-      <section className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-5 shadow-2xl sm:p-6">
+    <div className="mx-auto w-full max-w-5xl px-3 py-5 sm:px-6 lg:px-8 lg:py-10">
+      <section className="rounded-xl border border-zinc-800 bg-zinc-950/80 p-4 shadow-2xl sm:rounded-2xl sm:p-6">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.3em] text-cyan-400 sm:text-xs">
           WEB3MB Auto Onboarding
         </p>
 
-        <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+        <h1 className="text-2xl font-black leading-tight tracking-tight text-white sm:text-3xl">
           Paste Mint. Add Wallets. Generate Trust Dashboard.
         </h1>
 
@@ -216,7 +216,7 @@ export default function ProjectCreationForm() {
 
       <form
         onSubmit={handleSubmit}
-        className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4 shadow-2xl sm:p-6"
+        className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/80 p-4 shadow-2xl sm:rounded-2xl sm:p-6"
       >
         {error ? (
           <div className="mb-5 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">
@@ -240,14 +240,14 @@ export default function ProjectCreationForm() {
               value={mint}
               onChange={(e) => setMint(e.target.value)}
               placeholder="Paste Solana token mint address"
-              className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="min-w-0 flex-1 rounded-lg border border-zinc-800 bg-black px-4 py-3 text-base text-white outline-none focus:border-cyan-400 sm:text-sm"
             />
 
             <button
               type="button"
               onClick={handleAutoFill}
               disabled={autoLoading}
-              className="rounded-lg bg-cyan-400 px-5 py-3 text-sm font-black text-black hover:bg-cyan-300 disabled:opacity-60 sm:w-auto"
+              className="w-full rounded-lg bg-cyan-400 px-5 py-3 text-sm font-black text-black hover:bg-cyan-300 disabled:opacity-60 sm:w-auto"
             >
               {autoLoading ? "Loading..." : "Auto-Fill"}
             </button>
@@ -266,7 +266,7 @@ export default function ProjectCreationForm() {
                 if (!slug) setSlug(slugify(e.target.value));
               }}
               placeholder="Example: WEB3MB Token"
-              className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-base text-white outline-none focus:border-cyan-400 sm:text-sm"
             />
           </div>
 
@@ -278,7 +278,7 @@ export default function ProjectCreationForm() {
               value={symbol}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               placeholder="Example: WMB"
-              className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-base text-white outline-none focus:border-cyan-400 sm:text-sm"
             />
           </div>
         </div>
@@ -291,7 +291,7 @@ export default function ProjectCreationForm() {
             value={slug}
             onChange={(e) => setSlug(slugify(e.target.value))}
             placeholder="Example: web3mb-token"
-            className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+            className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-base text-white outline-none focus:border-cyan-400 sm:text-sm"
           />
         </div>
 
@@ -308,7 +308,7 @@ export default function ProjectCreationForm() {
           />
         </div>
 
-        <section className="mt-8 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 sm:p-5">
+        <section className="mt-8 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 sm:rounded-2xl sm:p-5">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-400">
@@ -343,7 +343,7 @@ export default function ProjectCreationForm() {
             {wallets.map((wallet, index) => (
               <div
                 key={index}
-                className="rounded-2xl border border-zinc-800 bg-black/70 p-4 sm:p-5"
+                className="rounded-xl border border-zinc-800 bg-black/70 p-4 sm:rounded-2xl sm:p-5"
               >
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <h3 className="font-black text-white">Wallet #{index + 1}</h3>
@@ -366,7 +366,7 @@ export default function ProjectCreationForm() {
                       value={wallet.label}
                       onChange={(e) => updateWallet(index, "label", e.target.value)}
                       placeholder="Example: Treasury Wallet"
-                      className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                      className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-base text-white outline-none focus:border-cyan-400 sm:text-sm"
                     />
                   </div>
 
@@ -377,7 +377,7 @@ export default function ProjectCreationForm() {
                     <select
                       value={wallet.category}
                       onChange={(e) => updateWallet(index, "category", e.target.value)}
-                      className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                      className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-base text-white outline-none focus:border-cyan-400 sm:text-sm"
                     >
                       {WALLET_CATEGORIES.map((category) => (
                         <option key={category} value={category}>
@@ -396,7 +396,7 @@ export default function ProjectCreationForm() {
                     value={wallet.address}
                     onChange={(e) => updateWallet(index, "address", e.target.value)}
                     placeholder="Paste Solana wallet address"
-                    className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-base text-white outline-none focus:border-cyan-400 sm:text-sm"
                   />
                 </div>
 
@@ -410,7 +410,7 @@ export default function ProjectCreationForm() {
                       onChange={(e) => updateWallet(index, "allocation", e.target.value)}
                       placeholder="Example: 20"
                       inputMode="decimal"
-                      className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                      className="w-full rounded-lg border border-zinc-800 bg-black px-4 py-3 text-base text-white outline-none focus:border-cyan-400 sm:text-sm"
                     />
                   </div>
 
