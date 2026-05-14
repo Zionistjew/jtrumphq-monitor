@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type ProjectRow = {
   id: number;
@@ -17,6 +20,7 @@ type ProjectWalletRow = {
   address: string;
   purpose: string | null;
   allocation: number | null;
+  verified?: boolean | null;
 };
 
 type LegacyWallet = {
@@ -26,8 +30,12 @@ type LegacyWallet = {
   purpose?: string;
   allocation?: number;
   verified?: boolean;
-  verificationStatus?: string;
 };
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 function getRpcUrl() {
   return (
@@ -37,8 +45,9 @@ function getRpcUrl() {
   );
 }
 
-function isValidPublicKey(value: string) {
+function isValidPublicKey(value?: string | null) {
   try {
+    if (!value) return false;
     new PublicKey(value);
     return true;
   } catch {
@@ -52,7 +61,9 @@ function normalizeLegacyWallets(wallets: unknown): ProjectWalletRow[] {
   return wallets
     .map((wallet) => wallet as LegacyWallet)
     .filter(
-      (wallet) => typeof wallet?.address === "string" && wallet.address.trim().length > 0
+      (wallet) =>
+        typeof wallet?.address === "string" &&
+        wallet.address.trim().length > 0
     )
     .map((wallet) => ({
       label: wallet.label || "Wallet",
@@ -60,9 +71,11 @@ function normalizeLegacyWallets(wallets: unknown): ProjectWalletRow[] {
       address: String(wallet.address).trim(),
       purpose: wallet.purpose || "",
       allocation:
-        typeof wallet.allocation === "number" && Number.isFinite(wallet.allocation)
+        typeof wallet.allocation === "number" &&
+        Number.isFinite(wallet.allocation)
           ? wallet.allocation
           : 0,
+      verified: Boolean(wallet.verified),
     }));
 }
 
@@ -71,7 +84,9 @@ async function getTokenBalanceForOwner(
   owner: PublicKey,
   mint: PublicKey
 ): Promise<number> {
-  const parsed = await connection.getParsedTokenAccountsByOwner(owner, { mint });
+  const parsed = await connection.getParsedTokenAccountsByOwner(owner, {
+    mint,
+  });
 
   if (!parsed.value.length) return 0;
 
@@ -85,8 +100,48 @@ async function getTokenBalanceForOwner(
 
     const uiAmountString = parsedInfo?.tokenAmount?.uiAmountString;
     const numeric = Number(uiAmountString || 0);
+
     return Number.isFinite(numeric) ? sum + numeric : sum;
   }, 0);
+}
+
+function buildWalletResponse(params: {
+  wallet: ProjectWalletRow;
+  liveTokenBalance: number;
+  liveSolBalance: number;
+  error?: string;
+}) {
+  const allocation =
+    typeof params.wallet.allocation === "number" &&
+    Number.isFinite(params.wallet.allocation)
+      ? params.wallet.allocation
+      : 0;
+
+  const variance = params.liveTokenBalance - allocation;
+  const lowSol = params.liveSolBalance <= 0.01;
+  const verified = Math.abs(variance) === 0 && params.liveSolBalance > 0.01;
+
+  return {
+    label: params.wallet.label || "Wallet",
+    category: params.wallet.category || "uncategorized",
+    address: params.wallet.address,
+    purpose: params.wallet.purpose || "",
+    allocation,
+
+    verified,
+    verificationStatus: verified ? "verified" : "mismatch",
+    lowSol,
+    variance,
+
+    liveTokenBalance: params.liveTokenBalance,
+    liveSolBalance: params.liveSolBalance,
+
+    tokenBalance: params.liveTokenBalance,
+    solBalance: params.liveSolBalance,
+
+    tokenAccounts: [],
+    error: params.error || null,
+  };
 }
 
 export async function GET(
@@ -102,8 +157,6 @@ export async function GET(
         { status: 400 }
       );
     }
-
-    const supabase = await createClient();
 
     const { data: project, error: projectError } = await supabase
       .from("projects")
@@ -137,7 +190,7 @@ export async function GET(
 
     const { data: normalizedWallets, error: walletRowsError } = await supabase
       .from("project_wallets")
-      .select("label, category, address, purpose, allocation")
+      .select("label, category, address, purpose, allocation, verified")
       .eq("project_id", project.id);
 
     if (walletRowsError) {
@@ -163,47 +216,29 @@ export async function GET(
       validWalletRows.map(async (wallet) => {
         try {
           const owner = new PublicKey(wallet.address);
-          const lamports = await connection.getBalance(owner, "confirmed");
-          const solBalance = lamports / 1_000_000_000;
 
-          const tokenBalance = await getTokenBalanceForOwner(
+          const lamports = await connection.getBalance(owner, "confirmed");
+          const liveSolBalance = lamports / 1_000_000_000;
+
+          const liveTokenBalance = await getTokenBalanceForOwner(
             connection,
             owner,
             mintKey
           );
 
-          return {
-            label: wallet.label || "Wallet",
-            category: wallet.category || "uncategorized",
-            address: wallet.address,
-            purpose: wallet.purpose || "",
-            allocation:
-              typeof wallet.allocation === "number" && Number.isFinite(wallet.allocation)
-                ? wallet.allocation
-                : 0,
-            verified: false,
-            verificationStatus: "unverified",
-            solBalance,
-            tokenBalance,
-            tokenAccounts: [],
-          };
+          return buildWalletResponse({
+            wallet,
+            liveTokenBalance,
+            liveSolBalance,
+          });
         } catch (error) {
-          return {
-            label: wallet.label || "Wallet",
-            category: wallet.category || "uncategorized",
-            address: wallet.address,
-            purpose: wallet.purpose || "",
-            allocation:
-              typeof wallet.allocation === "number" && Number.isFinite(wallet.allocation)
-                ? wallet.allocation
-                : 0,
-            verified: false,
-            verificationStatus: "unverified",
-            solBalance: 0,
-            tokenBalance: 0,
-            tokenAccounts: [],
-            error: error instanceof Error ? error.message : "Wallet read failed",
-          };
+          return buildWalletResponse({
+            wallet,
+            liveTokenBalance: 0,
+            liveSolBalance: 0,
+            error:
+              error instanceof Error ? error.message : "Wallet read failed",
+          });
         }
       })
     );
@@ -227,7 +262,10 @@ export async function GET(
     return NextResponse.json(
       {
         ok: false,
-        detail: error instanceof Error ? error.message : "Unexpected server error.",
+        detail:
+          error instanceof Error
+            ? error.message
+            : "Unexpected server error.",
       },
       { status: 500 }
     );
