@@ -123,9 +123,9 @@ function SummaryCard({
   );
 }
 
-function PublicSidebar() {
+function PublicSidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <aside className="hidden min-h-screen w-[310px] shrink-0 border-r border-white/10 bg-[#050816] xl:block">
+    <aside className="min-h-screen w-[310px] shrink-0 border-r border-white/10 bg-[#050816] xl:block hidden">
       <div className="sticky top-0 px-4 py-5 sm:px-6 sm:py-8">
         <div>
           <img
@@ -153,6 +153,7 @@ function PublicSidebar() {
             <div className="space-y-3">
               <Link
                 href="/transparency"
+                onClick={onNavigate}
                 className="block rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-black"
               >
                 Transparency Leaderboard
@@ -160,6 +161,7 @@ function PublicSidebar() {
 
               <Link
                 href="/app"
+                onClick={onNavigate}
                 className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 Owner Hub
@@ -167,6 +169,7 @@ function PublicSidebar() {
 
               <Link
                 href="/app/projects/new"
+                onClick={onNavigate}
                 className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 Create Project
@@ -215,6 +218,7 @@ function PublicSidebar() {
 }
 
 export default function TransparencyPage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedProjectId, setExpandedProjectId] = useState<number | null>(null);
@@ -333,12 +337,14 @@ export default function TransparencyPage() {
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/app"
+                onClick={onNavigate}
                   className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15"
                 >
                   Open Owner Hub
                 </Link>
                 <Link
                   href="/app/projects/new"
+                onClick={onNavigate}
                   className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/15"
                 >
                   Create Project
@@ -710,10 +716,12 @@ export default function TransparencyPage() {
                   </p>
 
                   <div className="mt-5 flex flex-wrap gap-3">
-                    <Link href="/app/projects/new" className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/15">
+                    <Link href="/app/projects/new"
+                onClick={onNavigate} className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/15">
                       Create Project
                     </Link>
-                    <Link href="/app" className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15">
+                    <Link href="/app"
+                onClick={onNavigate} className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15">
                       Open Owner Hub
                     </Link>
                   </div>
