@@ -297,22 +297,22 @@ export default function CryptoCheckoutPage() {
             </p>
 
             <nav className="mt-10 space-y-3">
-              <Link href="/app/billing" className="block rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-black hover:bg-white/10">
+              <Link href="/app/billing" className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 sm:px-5 sm:py-4 text-sm font-black hover:bg-white/10">
                 Back to Billing
               </Link>
 
-              <Link href="/app" className="block rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-black hover:bg-white/10">
+              <Link href="/app" className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 sm:px-5 sm:py-4 text-sm font-black hover:bg-white/10">
                 Owner Dashboard
               </Link>
 
-              <Link href="/transparency" className="block rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-black hover:bg-white/10">
+              <Link href="/transparency" className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 sm:px-5 sm:py-4 text-sm font-black hover:bg-white/10">
                 Public Directory
               </Link>
             </nav>
           </div>
 
           <div className="mt-auto p-8">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
                 Support
               </div>
@@ -330,15 +330,15 @@ export default function CryptoCheckoutPage() {
             className="pointer-events-none absolute right-10 top-10 hidden w-[520px] opacity-[0.04] blur-[1px] xl:block"
           />
 
-          <div className="relative mx-auto flex min-h-screen max-w-6xl items-center px-6 py-12">
-            <div className="w-full rounded-3xl border border-white/10 bg-zinc-950/80 p-8 shadow-2xl backdrop-blur md:p-10">
+          <div className="relative mx-auto flex min-h-screen max-w-6xl items-center px-4 py-6 sm:px-6 sm:py-12">
+            <div className="w-full rounded-xl sm:rounded-2xl border border-white/10 bg-zinc-950/80 p-4 shadow-2xl backdrop-blur sm:rounded-3xl sm:p-8 md:p-10">
               <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-start">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">
                     WEB3MB Crypto Checkout
                   </p>
 
-                  <h1 className="mt-4 text-4xl font-black tracking-tight">
+                  <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">
                     Activate {plan.name}
                   </h1>
 
@@ -347,20 +347,20 @@ export default function CryptoCheckoutPage() {
                   </p>
                 </div>
 
-                <Link href="/app/billing" className="rounded-xl border border-white/10 bg-white/10 px-5 py-4 text-sm font-black hover:bg-white/15">
+                <Link href="/app/billing" className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 sm:px-5 sm:py-4 text-sm font-black hover:bg-white/15">
                   Back to Billing
                 </Link>
               </div>
 
-              <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr]">
-                <div className="rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-7">
+              <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr] lg:gap-8">
+                <div className="rounded-xl sm:rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-4 sm:p-7">
                   <p className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">
                     Selected Plan
                   </p>
 
                   <h2 className="mt-5 text-3xl font-black">{plan.name}</h2>
 
-                  <div className="mt-5 text-4xl font-black text-cyan-300">
+                  <div className="mt-5 text-3xl font-black text-cyan-300 sm:text-4xl">
                     {plan.price}
                   </div>
 
@@ -374,7 +374,7 @@ export default function CryptoCheckoutPage() {
                   </ul>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-7">
+                <div className="rounded-xl sm:rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-7">
                   <p className="text-xs font-black uppercase tracking-[0.35em] text-zinc-400">
                     Status
                   </p>
@@ -433,7 +433,7 @@ export default function CryptoCheckoutPage() {
                       type="button"
                       onClick={connectPhantom}
                       disabled={paying}
-                      className="rounded-xl bg-white px-5 py-4 font-black text-black hover:bg-zinc-200 disabled:cursor-wait disabled:opacity-70"
+                      className="rounded-xl bg-white px-4 py-3 sm:px-5 sm:py-4 font-black text-black hover:bg-zinc-200 disabled:cursor-wait disabled:opacity-70"
                     >
                       Connect Phantom
                     </button>
@@ -442,7 +442,7 @@ export default function CryptoCheckoutPage() {
                       type="button"
                       onClick={payWithPhantom}
                       disabled={paying || sessionLoading}
-                      className="cursor-pointer rounded-xl bg-emerald-500 px-5 py-4 font-black text-black hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-70"
+                      className="cursor-pointer rounded-xl bg-emerald-500 px-4 py-3 sm:px-5 sm:py-4 font-black text-black hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-70"
                     >
                       {paying ? "Sending SOL..." : "Pay With Phantom"}
                     </button>
