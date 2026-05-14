@@ -76,6 +76,14 @@ function normalizeLegacyWallets(wallets: unknown): ProjectWalletRow[] {
     }));
 }
 
+async function getTokenSupply(connection: Connection, mint: PublicKey) {
+  const supply = await connection.getTokenSupply(mint, "confirmed");
+
+  const amount = Number(supply.value.uiAmount || 0);
+
+  return Number.isFinite(amount) ? amount : 0;
+}
+
 async function getTokenBalanceForOwner(
   connection: Connection,
   owner: PublicKey,
@@ -104,31 +112,52 @@ async function getTokenBalanceForOwner(
 
 function buildWalletResponse(params: {
   wallet: ProjectWalletRow;
+  tokenSupply: number;
   liveTokenBalance: number;
   liveSolBalance: number;
   error?: string;
 }) {
-  const allocation =
+  const allocationPercent =
     typeof params.wallet.allocation === "number" &&
     Number.isFinite(params.wallet.allocation)
       ? params.wallet.allocation
       : 0;
 
-  const variance = params.liveTokenBalance - allocation;
+  const declaredTokenBalance =
+    params.tokenSupply > 0 ? (params.tokenSupply * allocationPercent) / 100 : 0;
+
+  const variance = params.liveTokenBalance - declaredTokenBalance;
+
+  const variancePercent =
+    declaredTokenBalance > 0
+      ? (variance / declaredTokenBalance) * 100
+      : params.liveTokenBalance > 0
+      ? 100
+      : 0;
+
   const lowSol = params.liveSolBalance <= 0.01;
-  const verified = Math.abs(variance) === 0 && params.liveSolBalance > 0.01;
+
+  const verified =
+    declaredTokenBalance > 0 &&
+    Math.abs(variancePercent) <= 2 &&
+    params.liveSolBalance > 0.01;
 
   return {
     label: params.wallet.label || "Wallet",
     category: params.wallet.category || "uncategorized",
     address: params.wallet.address,
     purpose: params.wallet.purpose || "",
-    allocation,
+
+    allocation: declaredTokenBalance,
+    allocationPercent,
+    declaredTokenBalance,
+    tokenSupply: params.tokenSupply,
 
     verified,
     verificationStatus: verified ? "verified" : "mismatch",
     lowSol,
     variance,
+    variancePercent,
 
     liveTokenBalance: params.liveTokenBalance,
     liveSolBalance: params.liveSolBalance,
@@ -208,6 +237,7 @@ export async function GET(
 
     const connection = new Connection(getRpcUrl(), "confirmed");
     const mintKey = new PublicKey(project.mint);
+    const tokenSupply = await getTokenSupply(connection, mintKey);
 
     const wallets = await Promise.all(
       validWalletRows.map(async (wallet) => {
@@ -225,12 +255,14 @@ export async function GET(
 
           return buildWalletResponse({
             wallet,
+            tokenSupply,
             liveTokenBalance,
             liveSolBalance,
           });
         } catch (error) {
           return buildWalletResponse({
             wallet,
+            tokenSupply,
             liveTokenBalance: 0,
             liveSolBalance: 0,
             error:
@@ -246,6 +278,7 @@ export async function GET(
       name: project.name,
       symbol: project.symbol,
       mint: project.mint,
+      tokenSupply,
       count: wallets.length,
       wallets,
       updatedAt: new Date().toISOString(),
