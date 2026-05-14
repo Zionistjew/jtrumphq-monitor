@@ -78,7 +78,7 @@ export default function BillingPage() {
             WEB3MB Billing
           </p>
 
-          <h1 className="mt-3 text-4xl font-bold md:text-5xl">
+          <h1 className="mt-3 text-3xl font-bold sm:text-4xl md:text-5xl">
             Choose Your Transparency Plan
           </h1>
 
@@ -87,14 +87,14 @@ export default function BillingPage() {
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => (
             <div
               key={plan.name}
               className={
                 plan.featured
-                  ? "rounded-3xl border border-cyan-500 bg-cyan-950/20 p-6 shadow-2xl shadow-cyan-950/30"
-                  : "rounded-3xl border border-zinc-800 bg-zinc-950 p-6"
+                  ? "rounded-2xl sm:rounded-3xl border border-cyan-500 bg-cyan-950/20 p-4 sm:p-6 shadow-2xl shadow-cyan-950/30"
+                  : "rounded-2xl sm:rounded-3xl border border-zinc-800 bg-zinc-950 p-4 sm:p-6"
               }
             >
               {plan.featured ? (
@@ -107,7 +107,7 @@ export default function BillingPage() {
 
               <p className="mt-2 text-sm text-zinc-400">{plan.subtitle}</p>
 
-              <div className="mt-4 text-4xl font-bold text-cyan-400">
+              <div className="mt-4 text-3xl font-bold text-cyan-400 sm:text-4xl">
                 {plan.price}
               </div>
 
@@ -143,7 +143,7 @@ export default function BillingPage() {
           ))}
         </div>
 
-        <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+        <div className="mt-10 rounded-2xl sm:rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
           <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">
             Revenue Engine
           </p>
