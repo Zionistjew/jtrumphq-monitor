@@ -16,10 +16,15 @@ type WalletRead = {
   address: string;
   purpose?: string | null;
   allocation?: number | null;
+  allocationPercent?: number | null;
+  declaredTokenBalance?: number | null;
+  tokenSupply?: number | null;
   liveTokenBalance?: number | null;
   liveSolBalance?: number | null;
   variance?: number | null;
+  variancePercent?: number | null;
   verified?: boolean;
+  lowSol?: boolean;
 };
 
 type WalletApiResponse = {
@@ -65,9 +70,8 @@ function getCoverageRatio(totalDeclared: number, totalLive: number) {
 
 function getMismatchCount(wallets: WalletRead[]) {
   return wallets.filter((wallet) => {
-    const declared = Number(wallet.allocation || 0);
-    const live = Number(wallet.liveTokenBalance || 0);
-    return Math.abs(live - declared) > 0;
+    const variancePercent = Number(wallet.variancePercent ?? 0);
+    return Math.abs(variancePercent) > 2;
   }).length;
 }
 
@@ -79,12 +83,7 @@ function getLowSolCount(wallets: WalletRead[]) {
 }
 
 function getVerifiedCount(wallets: WalletRead[]) {
-  return wallets.filter((wallet) => {
-    const declared = Number(wallet.allocation || 0);
-    const live = Number(wallet.liveTokenBalance || 0);
-    const sol = Number(wallet.liveSolBalance || 0);
-    return Math.abs(live - declared) === 0 && sol > LOW_SOL_THRESHOLD;
-  }).length;
+  return wallets.filter((wallet) => Boolean(wallet.verified)).length;
 }
 
 function getMatchPercent(declared: number, live: number) {
@@ -269,15 +268,28 @@ export default function VerifyWalletsPage() {
         const normalizedWallets = Array.isArray(data.wallets)
           ? data.wallets.map((wallet) => {
               const allocation = Number(wallet.allocation || 0);
+              const allocationPercent = Number(wallet.allocationPercent || 0);
+              const declaredTokenBalance = Number(
+                wallet.declaredTokenBalance ?? allocation
+              );
+              const tokenSupply = Number(wallet.tokenSupply || 0);
               const liveTokenBalance = Number(wallet.liveTokenBalance || 0);
               const liveSolBalance = Number(wallet.liveSolBalance || 0);
+              const variance = Number(
+                wallet.variance ?? liveTokenBalance - declaredTokenBalance
+              );
+              const variancePercent = Number(wallet.variancePercent ?? 0);
 
               return {
                 ...wallet,
                 allocation,
+                allocationPercent,
+                declaredTokenBalance,
+                tokenSupply,
                 liveTokenBalance,
                 liveSolBalance,
-                variance: liveTokenBalance - allocation,
+                variance,
+                variancePercent,
               };
             })
           : [];
@@ -376,7 +388,7 @@ export default function VerifyWalletsPage() {
                 Wallet Verification
               </h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-300">
-                Compare each project’s disclosed wallets and declared allocations
+                Compare each project’s disclosed wallets and declared token allocations
                 against live Solana token and SOL balances.
               </p>
             </div>
@@ -445,13 +457,13 @@ export default function VerifyWalletsPage() {
             <StatCard
               label="Allocation Mismatches"
               value={totals.mismatches}
-              hint="Wallets where live balance differs from declared allocation."
+              hint="Wallets where live balance differs from declared token allocation."
               tone={totals.mismatches > 0 ? "warning" : "default"}
             />
             <StatCard
               label="Coverage Ratio"
               value={`${formatNumber(totals.coverageRatio)}%`}
-              hint="Live disclosed wallet balances versus declared allocation."
+              hint="Live disclosed wallet balances versus declared token allocation."
               tone={totals.coverageRatio > 100 ? "warning" : "default"}
             />
           </div>
@@ -494,7 +506,7 @@ export default function VerifyWalletsPage() {
                   Live Disclosed Wallet Reads
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-300">
-                  Compare each disclosed wallet&apos;s declared allocation with
+                  Compare each disclosed wallet&apos;s declared token allocation with
                   live token and SOL balances from Solana RPC.
                 </p>
               </div>
@@ -549,12 +561,16 @@ export default function VerifyWalletsPage() {
                 </div>
               ) : walletData?.wallets?.length ? (
                 walletData.wallets.map((wallet, index) => {
-                  const declared = Number(wallet.allocation || 0);
+                  const declared = Number(
+                    wallet.declaredTokenBalance ?? wallet.allocation ?? 0
+                  );
+                  const allocationPercent = Number(wallet.allocationPercent || 0);
                   const live = Number(wallet.liveTokenBalance || 0);
                   const liveSol = Number(wallet.liveSolBalance || 0);
-                  const variance = getVariance(declared, live);
-                  const mismatch = Math.abs(variance) > 0;
-                  const lowSol = liveSol <= LOW_SOL_THRESHOLD;
+                  const variance = Number(wallet.variance ?? live - declared);
+                  const variancePercent = Number(wallet.variancePercent ?? 0);
+                  const mismatch = Math.abs(variancePercent) > 2;
+                  const lowSol = Boolean(wallet.lowSol ?? liveSol <= LOW_SOL_THRESHOLD);
                   const matchPercent = getMatchPercent(declared, live);
                   const progressTone = getProgressTone(declared, live);
                   const progressStyles = getStatusToneClasses(progressTone);
@@ -620,10 +636,13 @@ export default function VerifyWalletsPage() {
                         <div className="grid min-w-0 grid-cols-2 gap-3 2xl:grid-cols-4">
                           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                             <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                              Declared Allocation
+                              Declared Tokens
                             </div>
                             <div className="mt-3 break-words text-2xl font-semibold text-white">
                               {formatNumber(declared, 0)}
+                            </div>
+                            <div className="mt-1 text-xs text-zinc-500">
+                              {formatNumber(allocationPercent, 2)}% of supply
                             </div>
                           </div>
 
