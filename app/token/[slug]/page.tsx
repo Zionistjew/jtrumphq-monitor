@@ -134,27 +134,19 @@ async function getBaseUrl() {
 async function getTokenData(slug: string): Promise<WalletApiResponse | null> {
   try {
     const baseUrl = await getBaseUrl();
-    const url = `${baseUrl}/api/token/${slug}/wallets`;
 
-    const res = await fetch(url, {
+    const res = await fetch(`${baseUrl}/api/token/${slug}/wallets`, {
       cache: "no-store",
     });
 
-    if (!res.ok) {
-      console.error("token fetch failed:", res.status, url);
-      return null;
-    }
+    if (!res.ok) return null;
 
     const data = (await res.json()) as WalletApiResponse;
 
-    if (!data.ok) {
-      console.error("token payload not ok:", data);
-      return null;
-    }
+    if (!data.ok) return null;
 
     return data;
-  } catch (error) {
-    console.error("token fetch error:", error);
+  } catch {
     return null;
   }
 }
@@ -162,27 +154,19 @@ async function getTokenData(slug: string): Promise<WalletApiResponse | null> {
 async function getTrustScore(slug: string): Promise<TrustScoreResponse | null> {
   try {
     const baseUrl = await getBaseUrl();
-    const url = `${baseUrl}/api/trust-score/${slug}`;
 
-    const res = await fetch(url, {
+    const res = await fetch(`${baseUrl}/api/trust-score/${slug}`, {
       cache: "no-store",
     });
 
-    if (!res.ok) {
-      console.error("trust fetch failed:", res.status, url);
-      return null;
-    }
+    if (!res.ok) return null;
 
     const data = (await res.json()) as TrustScoreResponse;
 
-    if (!data.ok) {
-      console.error("trust payload not ok:", data);
-      return null;
-    }
+    if (!data.ok) return null;
 
     return data;
-  } catch (error) {
-    console.error("trust fetch error:", error);
+  } catch {
     return null;
   }
 }
@@ -197,13 +181,13 @@ function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-sm sm:rounded-3xl sm:p-6">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-sm">
       <div className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">
         {label}
       </div>
 
       <div
-        className="mt-3 truncate text-3xl font-semibold text-white sm:mt-4 sm:text-4xl"
+        className="mt-3 truncate text-3xl font-semibold text-white"
         title={String(value)}
       >
         {value}
@@ -224,13 +208,13 @@ function MetricTile({
   value: string | number;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
         {label}
       </div>
 
       <div
-        className="mt-3 truncate text-xl font-semibold text-white sm:text-2xl"
+        className="mt-3 truncate text-xl font-semibold text-white"
         title={String(value)}
       >
         {value}
@@ -254,15 +238,15 @@ export default async function TokenPublicPage({
   if (!tokenData) {
     return (
       <div className="min-h-screen bg-[#050816] text-white">
-        <div className="mx-auto max-w-7xl px-4 py-12 md:px-8 xl:max-w-[1600px]">
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-10">
+        <div className="mx-auto w-full max-w-7xl px-4 py-12">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8">
             <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
               WEB3MB / Public Transparency Layer
             </div>
 
             <h1 className="mt-4 text-4xl font-semibold">Project not found</h1>
 
-            <p className="mt-4 max-w-2xl text-lg text-zinc-300">
+            <p className="mt-4 text-zinc-300">
               We could not load this public project dashboard.
             </p>
 
@@ -304,15 +288,15 @@ export default async function TokenPublicPage({
 
   return (
     <div className="min-h-screen bg-[#050816] text-white">
-      <div className="mx-auto max-w-[1700px] px-3 py-5 sm:px-4 md:px-8 xl:px-12">
-        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] p-4 shadow-2xl sm:rounded-[2rem] sm:p-6 md:p-8 xl:p-10">
+      <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-4 md:px-6 xl:px-8">
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] p-4 shadow-2xl sm:p-6 md:p-8">
           <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0 max-w-4xl">
               <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
                 WEB3MB / Public Transparency Layer
               </div>
 
-              <h1 className="mt-4 break-words text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl xl:text-6xl">
+              <h1 className="mt-4 break-words text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
                 {tokenData.name}
               </h1>
 
@@ -332,14 +316,14 @@ export default async function TokenPublicPage({
                 ) : null}
               </div>
 
-              <p className="mt-6 max-w-4xl text-base leading-8 text-zinc-300 md:text-lg">
+              <p className="mt-6 max-w-4xl text-base leading-8 text-zinc-300">
                 Public investor-facing transparency dashboard showing disclosed
                 wallet coverage, live token balance verification, trust scoring,
                 and operational integrity signals.
               </p>
             </div>
 
-            <div className="grid w-full gap-3 sm:grid-cols-3 xl:w-auto xl:min-w-[520px]">
+            <div className="grid w-full gap-3 sm:grid-cols-3 xl:w-auto xl:min-w-[420px]">
               <Link
                 href="/transparency"
                 className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-sm font-medium text-white transition hover:bg-white/15"
@@ -363,7 +347,7 @@ export default async function TokenPublicPage({
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Disclosed Wallets"
               value={wallets.length}
@@ -389,8 +373,8 @@ export default async function TokenPublicPage({
             />
           </div>
 
-          <div className="mt-8 grid gap-5 2xl:grid-cols-[minmax(0,1.25fr)_minmax(430px,0.75fr)]">
-            <div className="min-w-0 rounded-[2rem] border border-white/10 bg-black/20 p-7 xl:p-8">
+          <div className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+            <div className="min-w-0 rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                 Public Project Snapshot
               </div>
@@ -410,7 +394,7 @@ export default async function TokenPublicPage({
 
                 <MetricTile
                   label="Declared Allocation"
-                  value={formatNumber(totalDeclared, 0)}
+                  value={`${formatNumber(totalDeclared, 2)}%`}
                 />
 
                 <MetricTile
@@ -425,26 +409,26 @@ export default async function TokenPublicPage({
                     Full Mint Address
                   </div>
 
-                  <div className="mt-3 break-all text-sm font-medium leading-6 text-zinc-300">
+                  <div className="mt-3 break-all font-mono text-sm leading-6 text-zinc-300">
                     {tokenData.mint}
                   </div>
                 </div>
               ) : null}
             </div>
 
-            <div className="rounded-[2rem] border border-white/10 bg-black/20 p-7 xl:p-8">
+            <div className="rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                 WEB3MB Trust Score
               </div>
 
               {trustData ? (
                 <>
-                  <div className="mt-6 flex flex-wrap items-end gap-4">
-                    <div className="text-6xl font-semibold text-white md:text-7xl">
+                  <div className="mt-6 flex flex-wrap items-end gap-3">
+                    <div className="text-4xl font-semibold text-white sm:text-5xl">
                       {trustData.score ?? "—"}
                     </div>
 
-                    <div className="pb-2 text-xl text-zinc-400">/ 100</div>
+                    <div className="pb-1 text-lg text-zinc-400">/ 100</div>
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-3">
@@ -506,7 +490,7 @@ export default async function TokenPublicPage({
           </div>
 
           {trustData?.issues?.length ? (
-            <div className="mt-10 rounded-[2rem] border border-amber-500/20 bg-amber-500/10 p-7 xl:p-8">
+            <div className="mt-8 rounded-3xl border border-amber-500/20 bg-amber-500/10 p-5 sm:p-6">
               <div className="text-xs uppercase tracking-[0.22em] text-amber-300">
                 Key Issues
               </div>
@@ -524,14 +508,14 @@ export default async function TokenPublicPage({
             </div>
           ) : null}
 
-          <div className="mt-10 rounded-[2rem] border border-white/10 bg-black/20 p-7 xl:p-8">
+          <div className="mt-8 rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div className="max-w-4xl">
                 <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                   Disclosed Wallets
                 </div>
 
-                <h2 className="mt-3 text-3xl font-semibold text-white md:text-4xl">
+                <h2 className="mt-3 text-3xl font-semibold text-white">
                   Live Wallet Verification
                 </h2>
 
@@ -548,7 +532,7 @@ export default async function TokenPublicPage({
               ) : null}
             </div>
 
-            <div className="mt-8 space-y-6">
+            <div className="mt-8 space-y-5">
               {wallets.length > 0 ? (
                 wallets.map((wallet, index) => {
                   const declared = Number(wallet.allocation || 0);
@@ -570,44 +554,44 @@ export default async function TokenPublicPage({
                   return (
                     <div
                       key={`${wallet.address}-${index}`}
-                      className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.02] p-4 sm:rounded-[2rem] sm:p-6 xl:p-7"
+                      className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.02] p-4 sm:p-5"
                     >
-                      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.95fr)]">
+                      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-3">
-                            <h3 className="min-w-0 break-words text-2xl font-semibold text-white sm:text-3xl">
+                            <h3 className="min-w-0 break-words text-xl font-semibold text-white sm:text-2xl">
                               {wallet.label || "Unnamed Wallet"}
                             </h3>
 
                             {wallet.category ? (
-                              <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">
+                              <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-cyan-200">
                                 {wallet.category}
                               </span>
                             ) : null}
 
                             {verified ? (
-                              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">
+                              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-200">
                                 Verified
                               </span>
                             ) : (
-                              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-amber-200">
+                              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-200">
                                 Mismatch
                               </span>
                             )}
 
                             {lowSol ? (
-                              <span className="rounded-full border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-rose-200">
+                              <span className="rounded-full border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-rose-200">
                                 Low SOL
                               </span>
                             ) : null}
                           </div>
 
-                          <div className="mt-4 break-all text-sm text-zinc-300 sm:text-lg md:text-2xl">
+                          <div className="mt-4 break-all font-mono text-xs text-zinc-300 sm:text-sm">
                             {wallet.address || "—"}
                           </div>
 
                           {wallet.purpose ? (
-                            <div className="mt-4 text-base leading-7 text-zinc-300">
+                            <div className="mt-4 text-sm leading-7 text-zinc-300">
                               <span className="font-medium text-zinc-100">
                                 Purpose:
                               </span>{" "}
@@ -616,10 +600,10 @@ export default async function TokenPublicPage({
                           ) : null}
                         </div>
 
-                        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+                        <div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4">
                           <MetricTile
                             label="Declared"
-                            value={formatNumber(declared, 0)}
+                            value={`${formatNumber(declared, 2)}%`}
                           />
 
                           <MetricTile
@@ -627,26 +611,26 @@ export default async function TokenPublicPage({
                             value={formatNumber(live, 3)}
                           />
 
-                          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                             <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
                               Live SOL
                             </div>
 
                             <div
-                              className={`mt-3 truncate text-2xl font-semibold ${liveSolClass}`}
+                              className={`mt-3 truncate text-xl font-semibold ${liveSolClass}`}
                               title={formatNumber(sol, 6)}
                             >
                               {formatNumber(sol, 6)}
                             </div>
                           </div>
 
-                          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                             <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
                               Variance
                             </div>
 
                             <div
-                              className={`mt-3 truncate text-2xl font-semibold ${varianceClass}`}
+                              className={`mt-3 truncate text-xl font-semibold ${varianceClass}`}
                               title={formatNumber(variance, 3)}
                             >
                               {formatNumber(variance, 3)}
@@ -655,7 +639,7 @@ export default async function TokenPublicPage({
                         </div>
                       </div>
 
-                      <div className="mt-6 grid gap-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
+                      <div className="mt-5 grid gap-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
                         {wallet.address ? (
                           <a
                             href={`https://solscan.io/account/${wallet.address}`}
@@ -673,7 +657,7 @@ export default async function TokenPublicPage({
                           </span>
 
                           <span
-                            className="mt-2 block truncate text-zinc-300"
+                            className="mt-2 block truncate font-mono text-zinc-300"
                             title={wallet.address || ""}
                           >
                             {shortAddress(wallet.address)}
@@ -691,7 +675,7 @@ export default async function TokenPublicPage({
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <StatCard
               label="Low SOL Wallets"
               value={lowSolWallets}
@@ -700,7 +684,7 @@ export default async function TokenPublicPage({
 
             <StatCard
               label="Declared Allocation"
-              value={formatNumber(totalDeclared, 0)}
+              value={`${formatNumber(totalDeclared, 2)}%`}
               hint="Total allocation disclosed by the project."
             />
 
