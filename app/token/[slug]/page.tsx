@@ -352,14 +352,19 @@ function StatCard({
   value: string | number;
   hint?: string;
 }) {
+  const displayValue = String(value);
+
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-sm">
-      <div className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">
+    <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-sm">
+      <div className="truncate text-[10px] uppercase tracking-[0.14em] text-zinc-500 sm:text-[11px] sm:tracking-[0.16em]">
         {label}
       </div>
 
-      <div className="mt-3 break-words text-3xl font-semibold text-white">
-        {value}
+      <div
+        className="mt-3 max-w-full overflow-hidden break-words text-2xl font-semibold leading-tight text-white sm:text-3xl xl:text-2xl 2xl:text-3xl"
+        title={displayValue}
+      >
+        {displayValue}
       </div>
 
       {hint ? (
@@ -376,14 +381,19 @@ function MetricTile({
   label: string;
   value: string | number;
 }) {
+  const displayValue = String(value);
+
   return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+    <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="truncate text-[10px] uppercase tracking-[0.12em] text-zinc-500 sm:text-[11px] sm:tracking-[0.14em]">
         {label}
       </div>
 
-      <div className="mt-3 break-words text-xl font-semibold text-white">
-        {value}
+      <div
+        className="mt-3 max-w-full overflow-hidden break-words text-base font-semibold leading-tight text-white sm:text-lg xl:text-base 2xl:text-lg"
+        title={displayValue}
+      >
+        {displayValue}
       </div>
     </div>
   );
@@ -424,20 +434,21 @@ function SectionJumpNav() {
   ];
 
   return (
-    <div className="mt-8 rounded-3xl border border-cyan-500/20 bg-cyan-500/[0.04] p-4 shadow-lg shadow-cyan-950/20 backdrop-blur">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <div className="mt-8 min-w-0 overflow-hidden rounded-3xl border border-cyan-500/20 bg-cyan-500/[0.04] p-4 shadow-lg shadow-cyan-950/20 backdrop-blur">
+      <div className="flex min-w-0 flex-col gap-4">
         <div className="px-2 text-xs uppercase tracking-[0.22em] text-cyan-300">
           Jump Navigation
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid min-w-0 grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
           {links.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className={`whitespace-nowrap rounded-2xl border px-4 py-3 text-center text-sm font-semibold transition ${link.className}`}
+              className={`min-w-0 rounded-xl border px-2 py-3 text-center text-[11px] font-bold leading-tight transition sm:px-3 sm:text-xs 2xl:text-sm ${link.className}`}
+              title={link.label}
             >
-              {link.label}
+              <span className="block truncate">{link.label}</span>
             </a>
           ))}
         </div>
@@ -636,7 +647,7 @@ function WalletHealthScorePanel({
           </p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[520px]">
+        <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[420px]">
           <MetricTile label="Average Health" value={`${averageHealth} / 100`} />
           <MetricTile label="Critical Wallets" value={criticalCount} />
           <MetricTile label="Warning Wallets" value={warningCount} />
@@ -653,7 +664,7 @@ function WalletHealthScorePanel({
                 key={`${wallet.address}-${wallet.rank}-health`}
                 className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
               >
-                <div className="grid gap-5 xl:grid-cols-[90px_minmax(0,1fr)_minmax(360px,0.85fr)] xl:items-start">
+                <div className="grid gap-5 xl:grid-cols-[90px_minmax(0,1fr)_minmax(300px,0.85fr)] xl:items-start">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl font-semibold text-white">
                     #{wallet.rank}
                   </div>
@@ -767,7 +778,7 @@ function WalletRiskRankingPanel({
                 key={`${wallet.address}-${wallet.rank}`}
                 className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
               >
-                <div className="grid gap-5 xl:grid-cols-[90px_minmax(0,1fr)_minmax(360px,0.85fr)] xl:items-start">
+                <div className="grid gap-5 xl:grid-cols-[90px_minmax(0,1fr)_minmax(300px,0.85fr)] xl:items-start">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl font-semibold text-white">
                     #{wallet.rank}
                   </div>
@@ -1711,7 +1722,7 @@ export default async function TokenPublicPage({
             />
           </div>
 
-          <div id="investor-intelligence" className="mt-8 scroll-mt-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)]">
+          <div id="investor-intelligence" className="mt-8 scroll-mt-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,1fr)]">
             <div className="space-y-5">
               <InvestorIntelligencePanel holderAnalysis={holderAnalysis} />
 
@@ -1747,7 +1758,7 @@ export default async function TokenPublicPage({
             </div>
           </div>
 
-          <div className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+          <div className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
             <div className="min-w-0 rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
               <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                 Public Project Snapshot
