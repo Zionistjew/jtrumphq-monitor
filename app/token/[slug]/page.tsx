@@ -479,7 +479,7 @@ function InvestorIntelligencePanel({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="mt-6 grid min-w-0 gap-4 sm:grid-cols-2">
         <MetricTile
           label="Largest Holder"
           value={formatPercent(holderAnalysis?.largestHolderPercent)}
@@ -565,7 +565,7 @@ function SellPressurePanel({
         <div className="pb-2 text-lg text-zinc-400">/ 100</div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="mt-6 grid min-w-0 gap-4 sm:grid-cols-2">
         <MetricTile
           label="Team Controlled"
           value={formatPercent(sellPressure?.teamControlledPercent || 0)}
@@ -1629,31 +1629,31 @@ export default async function TokenPublicPage({
               </p>
             </div>
 
-            <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:min-w-[560px]">
+            <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:min-w-[460px]">
               <Link
                 href="/transparency"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-sm font-medium text-white transition hover:bg-white/15"
+                className="inline-flex min-w-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-center text-xs font-bold text-white transition hover:bg-white/15 sm:text-sm"
               >
                 Transparency Directory
               </Link>
 
               <Link
                 href="/app"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-sm font-medium text-white transition hover:bg-white/15"
+                className="inline-flex min-w-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-center text-xs font-bold text-white transition hover:bg-white/15 sm:text-sm"
               >
                 Open Owner Hub
               </Link>
 
               <Link
                 href="/app/projects/new"
-                className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-4 text-sm font-semibold text-black transition hover:opacity-90"
+                className="inline-flex min-w-0 items-center justify-center rounded-xl bg-white px-4 py-3 text-center text-xs font-black text-black transition hover:opacity-90 sm:text-sm"
               >
                 Create Project
               </Link>
 
               <Link
                 href={`/token/${tokenData.slug}/report`}
-                className="inline-flex items-center justify-center rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-5 py-4 text-sm font-semibold text-cyan-100 transition hover:border-cyan-300/60 hover:bg-cyan-500/25"
+                className="inline-flex min-w-0 items-center justify-center rounded-xl border border-cyan-400/30 bg-cyan-500/15 px-4 py-3 text-center text-xs font-black text-cyan-100 transition hover:border-cyan-300/60 hover:bg-cyan-500/25 sm:text-sm"
               >
                 Download Audit Report
               </Link>
@@ -1685,7 +1685,7 @@ export default async function TokenPublicPage({
           />
 
 
-          <div id="overview" className="mt-8 scroll-mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div id="overview" className="mt-8 grid min-w-0 scroll-mt-8 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Disclosed Wallets"
               value={wallets.length}
@@ -1723,7 +1723,7 @@ export default async function TokenPublicPage({
                 Wallet Disclosure Coverage
               </div>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="mt-6 grid min-w-0 gap-4 sm:grid-cols-2">
                 <MetricTile
                   label="Disclosed Wallets"
                   value={`${wallets.length} tracked`}
@@ -1824,7 +1824,7 @@ export default async function TokenPublicPage({
                     </span>
                   </div>
 
-                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div className="mt-6 grid min-w-0 gap-4 sm:grid-cols-2">
                     <MetricTile
                       label="Wallet Score"
                       value={`${trustData.breakdown?.walletScore ?? "—"} / 40`}
@@ -1948,7 +1948,7 @@ export default async function TokenPublicPage({
                       key={`${wallet.address}-${index}`}
                       className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.02] p-4 sm:p-5"
                     >
-                      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(520px,0.9fr)]">
+                      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)]">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-3">
                             <h3 className="min-w-0 break-words text-xl font-semibold text-white sm:text-2xl">
@@ -1992,7 +1992,7 @@ export default async function TokenPublicPage({
                           ) : null}
                         </div>
 
-                        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-2">
                           <MetricTile
                             label="Declared Tokens"
                             value={formatNumber(declaredTokens, 3)}
@@ -2085,7 +2085,7 @@ export default async function TokenPublicPage({
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-8 grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Low SOL Wallets"
               value={lowSolWallets}
