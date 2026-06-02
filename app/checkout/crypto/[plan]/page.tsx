@@ -23,6 +23,14 @@ type PaymentSession = {
   recipient: string;
 };
 
+type LatestBlockhashResponse = {
+  ok?: boolean;
+  blockhash?: string;
+  lastValidBlockHeight?: number;
+  error?: string;
+  details?: string[];
+};
+
 const LOGO_URL = "https://web3mb.com/wp-content/uploads/2026/04/WEB3MB-L.png";
 
 const PLANS: Record<
@@ -33,31 +41,64 @@ const PLANS: Record<
     name: "Launch Pass",
     price: "$149 one-time",
     description: "For founders launching one token transparency dashboard.",
-    bullets: ["1 project", "Up to 10 wallets", "Public dashboard", "Trust score", "Wallet disclosure"],
+    bullets: [
+      "1 project",
+      "Up to 10 wallets",
+      "Public dashboard",
+      "Trust score",
+      "Wallet disclosure",
+    ],
   },
   starter: {
     name: "Starter",
     price: "$99/mo",
     description: "For early-stage token teams building investor trust.",
-    bullets: ["1 project", "Up to 15 wallets", "Public trust dashboard", "Verified wallet labels", "Basic alerts"],
+    bullets: [
+      "1 project",
+      "Up to 15 wallets",
+      "Public trust dashboard",
+      "Verified wallet labels",
+      "Basic alerts",
+    ],
   },
   growth: {
     name: "Growth",
     price: "$299/mo",
     description: "For active founders managing multiple token projects.",
-    bullets: ["Up to 5 projects", "Up to 50 wallets", "Advanced alerts", "Trust analytics", "Priority support"],
+    bullets: [
+      "Up to 5 projects",
+      "Up to 50 wallets",
+      "Advanced alerts",
+      "Trust analytics",
+      "Priority support",
+    ],
   },
   enterprise: {
     name: "Enterprise",
     price: "Custom",
     description: "For launchpads, agencies, exchanges, and serious teams.",
-    bullets: ["Unlimited projects", "Custom wallet monitoring", "Team workflows", "Custom integrations", "Enterprise support"],
+    bullets: [
+      "Unlimited projects",
+      "Custom wallet monitoring",
+      "Team workflows",
+      "Custom integrations",
+      "Enterprise support",
+    ],
   },
 };
 
 function getPlanKey(value: string): PlanKey {
   const clean = value.toLowerCase();
-  if (clean === "launch-pass" || clean === "starter" || clean === "growth" || clean === "enterprise") return clean;
+
+  if (
+    clean === "launch-pass" ||
+    clean === "starter" ||
+    clean === "growth" ||
+    clean === "enterprise"
+  ) {
+    return clean;
+  }
+
   return "starter";
 }
 
@@ -67,6 +108,31 @@ function maskWallet(wallet: string) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getServerBlockhash(): Promise<{
+  blockhash: string;
+  lastValidBlockHeight: number;
+}> {
+  const res = await fetch("/api/solana/latest-blockhash", {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  const data = (await res.json().catch(() => null)) as LatestBlockhashResponse | null;
+
+  if (!res.ok || !data?.ok || !data.blockhash || !data.lastValidBlockHeight) {
+    throw new Error(
+      data?.error ||
+        data?.details?.join(" | ") ||
+        "Unable to get latest Solana blockhash."
+    );
+  }
+
+  return {
+    blockhash: data.blockhash,
+    lastValidBlockHeight: data.lastValidBlockHeight,
+  };
 }
 
 export default function CryptoCheckoutPage() {
@@ -92,13 +158,17 @@ export default function CryptoCheckoutPage() {
     return `${payment.solAmount} SOL / $${payment.amountUsd}`;
   }, [payment, plan.price]);
 
-  async function createPaymentSession(walletForSession?: string): Promise<PaymentSession> {
+  async function createPaymentSession(
+    walletForSession?: string
+  ): Promise<PaymentSession> {
     setSessionLoading(true);
     setError("");
 
     try {
       if (planKey === "enterprise") {
-        throw new Error("Enterprise plans require manual setup. Please contact support.");
+        throw new Error(
+          "Enterprise plans require manual setup. Please contact support."
+        );
       }
 
       const res = await fetch("/api/payments/create", {
@@ -114,10 +184,16 @@ export default function CryptoCheckoutPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        throw new Error(data?.error || data?.message || "Payment session failed.");
+        throw new Error(
+          data?.error || data?.message || "Payment session failed."
+        );
       }
 
-      if (!data?.payment?.id || !data?.payment?.recipient || !data?.payment?.lamports) {
+      if (
+        !data?.payment?.id ||
+        !data?.payment?.recipient ||
+        !data?.payment?.lamports
+      ) {
         throw new Error("Payment session is missing payment details.");
       }
 
@@ -135,7 +211,9 @@ export default function CryptoCheckoutPage() {
       const provider = (window as any).solana;
 
       if (!provider || !provider.isPhantom) {
-        throw new Error("Phantom wallet not found. Please install or unlock Phantom.");
+        throw new Error(
+          "Phantom wallet not found. Please install or unlock Phantom."
+        );
       }
 
       const resp = await provider.connect();
@@ -151,22 +229,20 @@ export default function CryptoCheckoutPage() {
     }
   }
 
-  async function sendSolPayment(
-    connection: Connection,
-    provider: any,
+  async function buildTransaction(
     payerPublicKey: PublicKey,
     activePayment: PaymentSession
   ) {
     const recipientPublicKey = new PublicKey(activePayment.recipient);
-
-    const { blockhash, lastValidBlockHeight } =
-      await connection.getLatestBlockhash("finalized");
+    const { blockhash, lastValidBlockHeight } = await getServerBlockhash();
 
     const transaction = new Transaction({
       feePayer: payerPublicKey,
       blockhash,
       lastValidBlockHeight,
-    }).add(
+    });
+
+    transaction.add(
       SystemProgram.transfer({
         fromPubkey: payerPublicKey,
         toPubkey: recipientPublicKey,
@@ -174,13 +250,43 @@ export default function CryptoCheckoutPage() {
       })
     );
 
+    return {
+      transaction,
+      blockhash,
+      lastValidBlockHeight,
+    };
+  }
+
+  async function sendSolPayment(
+    provider: any,
+    payerPublicKey: PublicKey,
+    activePayment: PaymentSession
+  ) {
+    const { transaction, blockhash, lastValidBlockHeight } =
+      await buildTransaction(payerPublicKey, activePayment);
+
+    if (typeof provider.signAndSendTransaction === "function") {
+      const result = await provider.signAndSendTransaction(transaction);
+
+      const txSignature =
+        typeof result === "string" ? result : result?.signature || "";
+
+      if (!txSignature) {
+        throw new Error("Phantom did not return a transaction signature.");
+      }
+
+      return txSignature;
+    }
+
     const signedTransaction = await provider.signTransaction(transaction);
+
+    const connection = new Connection(rpcUrl, "confirmed");
 
     const txSignature = await connection.sendRawTransaction(
       signedTransaction.serialize(),
       {
         skipPreflight: false,
-        preflightCommitment: "finalized",
+        preflightCommitment: "confirmed",
         maxRetries: 5,
       }
     );
@@ -191,7 +297,7 @@ export default function CryptoCheckoutPage() {
         blockhash,
         lastValidBlockHeight,
       },
-      "finalized"
+      "confirmed"
     );
 
     if (confirmation.value.err) {
@@ -210,7 +316,9 @@ export default function CryptoCheckoutPage() {
       const provider = (window as any).solana;
 
       if (!provider || !provider.isPhantom) {
-        throw new Error("Phantom wallet not found. Please install or unlock Phantom.");
+        throw new Error(
+          "Phantom wallet not found. Please install or unlock Phantom."
+        );
       }
 
       const connected = await provider.connect();
@@ -222,24 +330,25 @@ export default function CryptoCheckoutPage() {
       const activePayment =
         payment || (await createPaymentSession(payerWallet));
 
-      const connection = new Connection(rpcUrl, "finalized");
-
       let txSignature = "";
 
       try {
         txSignature = await sendSolPayment(
-          connection,
           provider,
           payerPublicKey,
           activePayment
         );
       } catch (sendError: any) {
-        const msg = String(sendError?.message || sendError || "");
+        const msg = String(sendError?.message || sendError || "").toLowerCase();
 
-        if (msg.toLowerCase().includes("blockhash not found")) {
-          await sleep(800);
+        if (
+          msg.includes("blockhash not found") ||
+          msg.includes("blockhash expired") ||
+          msg.includes("transaction expired")
+        ) {
+          await sleep(900);
+
           txSignature = await sendSolPayment(
-            connection,
             provider,
             payerPublicKey,
             activePayment
@@ -283,10 +392,31 @@ export default function CryptoCheckoutPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
+      <div className="sticky top-0 z-50 flex items-center justify-between border-b border-white/10 bg-[#070b1a]/95 px-4 py-3 backdrop-blur lg:hidden">
+        <Link href="/app/billing" className="block">
+          <img
+            src={LOGO_URL}
+            alt="WEB3MB"
+            className="h-12 w-auto object-contain"
+          />
+        </Link>
+
+        <Link
+          href="/app/billing"
+          className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-white"
+        >
+          Change Plan
+        </Link>
+      </div>
+
       <div className="flex min-h-screen">
         <aside className="hidden w-[330px] shrink-0 border-r border-white/10 bg-[#070b1a] lg:flex lg:flex-col">
           <div className="p-8">
-            <img src={LOGO_URL} alt="WEB3MB" className="h-24 w-auto object-contain" />
+            <img
+              src={LOGO_URL}
+              alt="WEB3MB"
+              className="h-24 w-auto object-contain"
+            />
 
             <div className="mt-8 rounded-full border border-cyan-400/40 bg-cyan-400/10 px-5 py-3 text-center text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
               Secure Checkout
@@ -297,22 +427,31 @@ export default function CryptoCheckoutPage() {
             </p>
 
             <nav className="mt-10 space-y-3">
-              <Link href="/app/billing" className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 sm:px-5 sm:py-4 text-sm font-black hover:bg-white/10">
+              <Link
+                href="/app/billing"
+                className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black hover:bg-white/10 sm:px-5 sm:py-4"
+              >
                 Back to Billing
               </Link>
 
-              <Link href="/app" className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 sm:px-5 sm:py-4 text-sm font-black hover:bg-white/10">
+              <Link
+                href="/app"
+                className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black hover:bg-white/10 sm:px-5 sm:py-4"
+              >
                 Owner Dashboard
               </Link>
 
-              <Link href="/transparency" className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 sm:px-5 sm:py-4 text-sm font-black hover:bg-white/10">
+              <Link
+                href="/transparency"
+                className="block rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black hover:bg-white/10 sm:px-5 sm:py-4"
+              >
                 Public Directory
               </Link>
             </nav>
           </div>
 
           <div className="mt-auto p-8">
-            <div className="rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-5 sm:rounded-2xl">
               <div className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
                 Support
               </div>
@@ -331,7 +470,7 @@ export default function CryptoCheckoutPage() {
           />
 
           <div className="relative mx-auto flex min-h-screen max-w-6xl items-center px-4 py-6 sm:px-6 sm:py-12">
-            <div className="w-full rounded-xl sm:rounded-2xl border border-white/10 bg-zinc-950/80 p-4 shadow-2xl backdrop-blur sm:rounded-3xl sm:p-8 md:p-10">
+            <div className="w-full rounded-xl border border-white/10 bg-zinc-950/80 p-4 shadow-2xl backdrop-blur sm:rounded-3xl sm:p-8 md:p-10">
               <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-start">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">
@@ -347,13 +486,16 @@ export default function CryptoCheckoutPage() {
                   </p>
                 </div>
 
-                <Link href="/app/billing" className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 sm:px-5 sm:py-4 text-sm font-black hover:bg-white/15">
+                <Link
+                  href="/app/billing"
+                  className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-black hover:bg-white/15 sm:px-5 sm:py-4"
+                >
                   Back to Billing
                 </Link>
               </div>
 
               <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr] lg:gap-8">
-                <div className="rounded-xl sm:rounded-2xl border border-cyan-400/30 bg-cyan-400/5 p-4 sm:p-7">
+                <div className="rounded-xl border border-cyan-400/30 bg-cyan-400/5 p-4 sm:rounded-2xl sm:p-7">
                   <p className="text-xs font-black uppercase tracking-[0.35em] text-cyan-300">
                     Selected Plan
                   </p>
@@ -374,7 +516,7 @@ export default function CryptoCheckoutPage() {
                   </ul>
                 </div>
 
-                <div className="rounded-xl sm:rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-7">
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:rounded-2xl sm:p-7">
                   <p className="text-xs font-black uppercase tracking-[0.35em] text-zinc-400">
                     Status
                   </p>
@@ -383,8 +525,8 @@ export default function CryptoCheckoutPage() {
                     {sessionLoading
                       ? "Creating payment session"
                       : payment
-                      ? "Ready for Phantom payment"
-                      : "Connect Phantom to create payment session"}
+                        ? "Ready for Phantom payment"
+                        : "Connect Phantom to create payment session"}
                   </h2>
 
                   {error ? (
@@ -397,7 +539,10 @@ export default function CryptoCheckoutPage() {
                     <div className="rounded-xl border border-white/10 bg-black/40 p-4">
                       <div className="text-sm text-zinc-500">Payment ID</div>
                       <div className="mt-1 break-all font-black">
-                        {payment?.id || (sessionLoading ? "Creating..." : "Connect Phantom first")}
+                        {payment?.id ||
+                          (sessionLoading
+                            ? "Creating..."
+                            : "Connect Phantom first")}
                       </div>
                     </div>
 
@@ -423,7 +568,8 @@ export default function CryptoCheckoutPage() {
                         Secure Recipient
                       </div>
                       <div className="mt-2 text-sm leading-6 text-zinc-200">
-                        Phantom will open and show the exact SOL amount before approval.
+                        Phantom will open and show the exact SOL amount before
+                        approval.
                       </div>
                     </div>
                   </div>
@@ -433,7 +579,7 @@ export default function CryptoCheckoutPage() {
                       type="button"
                       onClick={connectPhantom}
                       disabled={paying}
-                      className="rounded-xl bg-white px-4 py-3 sm:px-5 sm:py-4 font-black text-black hover:bg-zinc-200 disabled:cursor-wait disabled:opacity-70"
+                      className="rounded-xl bg-white px-4 py-3 font-black text-black hover:bg-zinc-200 disabled:cursor-wait disabled:opacity-70 sm:px-5 sm:py-4"
                     >
                       Connect Phantom
                     </button>
@@ -442,7 +588,7 @@ export default function CryptoCheckoutPage() {
                       type="button"
                       onClick={payWithPhantom}
                       disabled={paying || sessionLoading}
-                      className="cursor-pointer rounded-xl bg-emerald-500 px-4 py-3 sm:px-5 sm:py-4 font-black text-black hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-70"
+                      className="cursor-pointer rounded-xl bg-emerald-500 px-4 py-3 font-black text-black hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-70 sm:px-5 sm:py-4"
                     >
                       {paying ? "Sending SOL..." : "Pay With Phantom"}
                     </button>
@@ -451,13 +597,17 @@ export default function CryptoCheckoutPage() {
                   {wallet ? (
                     <div className="mt-5 rounded-xl border border-white/10 bg-black/30 p-4 text-sm">
                       <div className="text-zinc-500">Connected Wallet</div>
-                      <div className="mt-1 break-all font-black">{maskWallet(wallet)}</div>
+                      <div className="mt-1 break-all font-black">
+                        {maskWallet(wallet)}
+                      </div>
                     </div>
                   ) : null}
 
                   {signature ? (
                     <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
-                      <div className="text-emerald-300">Transaction Signature</div>
+                      <div className="text-emerald-300">
+                        Transaction Signature
+                      </div>
                       <div className="mt-1 break-all font-black">{signature}</div>
                     </div>
                   ) : null}

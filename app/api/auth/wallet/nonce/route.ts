@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { store } from "@/lib/store";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const walletAddress = String(body.walletAddress || "");
+    const walletAddress = String(body.walletAddress || "").trim();
 
     if (!walletAddress) {
       return NextResponse.json(
@@ -15,21 +14,38 @@ export async function POST(req: NextRequest) {
     }
 
     const nonce = crypto.randomBytes(24).toString("hex");
-    store.createNonce(walletAddress, nonce);
 
     const message = [
-      "JTRUMPHQ Login",
+      "WEB3MB Login",
       `Wallet: ${walletAddress}`,
       `Nonce: ${nonce}`,
       `Issued At: ${new Date().toISOString()}`,
     ].join("\n");
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       ok: true,
       walletAddress,
       nonce,
       message,
     });
+
+    res.cookies.set("web3mb_wallet_nonce", nonce, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 5,
+    });
+
+    res.cookies.set("web3mb_wallet_address", walletAddress, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 5,
+    });
+
+    return res;
   } catch {
     return NextResponse.json(
       { ok: false, error: "Failed to create nonce" },

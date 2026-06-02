@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type WalletEntry = {
@@ -84,6 +84,7 @@ export default function ProjectClient() {
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [checkingPlan, setCheckingPlan] = useState(true);
   const [error, setError] = useState("");
 
   const [form, setForm] = useState<ProjectForm>({
@@ -95,6 +96,51 @@ export default function ProjectClient() {
   });
 
   const [wallets, setWallets] = useState<WalletEntry[]>(walletTemplates);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkSubscription() {
+      try {
+        const res = await fetch("/api/app/subscription", {
+          credentials: "include",
+          cache: "no-store",
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (!mounted) return;
+
+        if (!res.ok || !data?.ok) {
+          router.replace("/app/billing?reason=subscription-required");
+          return;
+        }
+
+        const hasActivePlan = data?.subscription?.status === "active";
+        const limitReached = data?.usage?.upgrade_required === true;
+
+        if (!hasActivePlan) {
+          router.replace("/app/billing?reason=subscription-required");
+          return;
+        }
+
+        if (limitReached) {
+          router.replace("/app/billing?reason=project-limit");
+          return;
+        }
+
+        setCheckingPlan(false);
+      } catch {
+        router.replace("/app/billing?reason=subscription-check-failed");
+      }
+    }
+
+    checkSubscription();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   const totalAllocation = useMemo(() => {
     return wallets.reduce((sum, wallet) => {
@@ -236,6 +282,27 @@ export default function ProjectClient() {
     setSubmitting(true);
 
     try {
+      const subscriptionRes = await fetch("/api/app/subscription", {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const subscriptionData = await subscriptionRes.json().catch(() => null);
+
+      if (
+        !subscriptionRes.ok ||
+        !subscriptionData?.ok ||
+        subscriptionData?.subscription?.status !== "active"
+      ) {
+        router.replace("/app/billing?reason=subscription-required");
+        return;
+      }
+
+      if (subscriptionData?.usage?.upgrade_required === true) {
+        router.replace("/app/billing?reason=project-limit");
+        return;
+      }
+
       const payload = {
         name: form.name.trim(),
         symbol: form.symbol.trim().toUpperCase(),
@@ -269,6 +336,14 @@ export default function ProjectClient() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
+        if (
+          data?.code === "PROJECT_LIMIT_REACHED" ||
+          data?.error?.toLowerCase?.().includes("limit")
+        ) {
+          router.replace("/app/billing?reason=project-limit");
+          return;
+        }
+
         throw new Error(
           data?.error || data?.message || "Project creation failed."
         );
@@ -288,6 +363,20 @@ export default function ProjectClient() {
 
   const panelClass =
     "rounded-3xl border border-zinc-800 bg-zinc-950/80 p-5 shadow-xl shadow-black/30 sm:p-8";
+
+  if (checkingPlan) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
+        <div className="rounded-3xl border border-cyan-400/20 bg-zinc-950 p-8 text-center shadow-2xl shadow-cyan-500/10">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-cyan-400 border-t-transparent" />
+          <h1 className="mt-6 text-2xl font-black">Checking Subscription</h1>
+          <p className="mt-3 text-sm leading-6 text-zinc-400">
+            WEB3MB is verifying your plan before opening project onboarding.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -551,7 +640,9 @@ export default function ProjectClient() {
 
                     <div className="mb-5">
                       <div className="flex items-center justify-between gap-3 text-xs">
-                        <span className="text-zinc-500">Declared allocation</span>
+                        <span className="text-zinc-500">
+                          Declared allocation
+                        </span>
                         <span className="font-bold text-zinc-300">
                           {cleanNumber(wallet.allocation).toFixed(2)}%
                         </span>
@@ -692,9 +783,7 @@ export default function ProjectClient() {
 
               <div className="rounded-2xl border border-zinc-800 bg-black p-5">
                 <p className="text-sm text-zinc-500">Readiness</p>
-                <p className="mt-2 text-3xl font-black">
-                  {readinessScore}%
-                </p>
+                <p className="mt-2 text-3xl font-black">{readinessScore}%</p>
               </div>
             </div>
 

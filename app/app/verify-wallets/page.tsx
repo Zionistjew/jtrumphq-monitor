@@ -24,6 +24,7 @@ type WalletRead = {
   variance?: number | null;
   variancePercent?: number | null;
   verified?: boolean;
+  verified_at?: string | null;
   lowSol?: boolean;
 };
 
@@ -57,10 +58,16 @@ function shortenAddress(address?: string | null) {
   return `${address.slice(0, 6)}...${address.slice(-6)}`;
 }
 
-function getVariance(allocation?: number | null, live?: number | null) {
-  const declared = Number(allocation || 0);
-  const actual = Number(live || 0);
-  return actual - declared;
+function buildVerificationMessage(params: {
+  walletAddress: string;
+  projectSlug: string;
+}) {
+  return [
+    "WEB3MB Wallet Verification",
+    `Project: ${params.projectSlug}`,
+    `Wallet: ${params.walletAddress}`,
+    "Purpose: Verify wallet ownership for project transparency.",
+  ].join("\n");
 }
 
 function getCoverageRatio(totalDeclared: number, totalLive: number) {
@@ -94,13 +101,8 @@ function getMatchPercent(declared: number, live: number) {
 function getProgressTone(declared: number, live: number) {
   const variance = Math.abs(live - declared);
 
-  if (declared <= 0 && live > 0) {
-    return "critical";
-  }
-
-  if (variance === 0) {
-    return "healthy";
-  }
+  if (declared <= 0 && live > 0) return "critical";
+  if (variance === 0) return "healthy";
 
   const pct = declared > 0 ? (variance / declared) * 100 : 0;
 
@@ -114,8 +116,7 @@ function getStatusToneClasses(
   switch (tone) {
     case "healthy":
       return {
-        badge:
-          "border-emerald-500/20 bg-emerald-500/10 text-emerald-200",
+        badge: "border-emerald-500/20 bg-emerald-500/10 text-emerald-200",
         bar: "bg-emerald-400",
       };
     case "warning":
@@ -169,13 +170,7 @@ function StatCard({
   );
 }
 
-function InfoPanel({
-  title,
-  text,
-}: {
-  title: string;
-  text: string;
-}) {
+function InfoPanel({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
       <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
@@ -197,12 +192,15 @@ export default function VerifyWalletsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const [verifyingAddress, setVerifyingAddress] = useState<string | null>(null);
 
   const loadProjects = useCallback(async () => {
     try {
       setLoadingProjects(true);
+      setError(null);
 
       const res = await fetch("/api/projects", {
         method: "GET",
@@ -244,6 +242,7 @@ export default function VerifyWalletsPage() {
 
       try {
         setError(null);
+
         if (showRefreshState) {
           setRefreshing(true);
         } else {
@@ -290,6 +289,7 @@ export default function VerifyWalletsPage() {
                 liveSolBalance,
                 variance,
                 variancePercent,
+                verified: Boolean(wallet.verified),
               };
             })
           : [];
@@ -298,6 +298,7 @@ export default function VerifyWalletsPage() {
           ...data,
           wallets: normalizedWallets,
         });
+
         setLastSynced(new Date().toLocaleString());
       } catch (err) {
         const message =
@@ -324,6 +325,113 @@ export default function VerifyWalletsPage() {
       window.alert("Unable to copy address.");
     }
   }, []);
+
+  const verifyWalletOwnership = useCallback(
+    async (walletAddress: string) => {
+      try {
+        setError(null);
+        setSuccess(null);
+        setVerifyingAddress(walletAddress);
+
+        if (!selectedSlug) {
+          throw new Error("Please select a project first.");
+        }
+
+        const provider = (window as any).solana;
+
+        if (!provider || !provider.isPhantom) {
+          throw new Error(
+            "Phantom wallet not found. Please install or unlock Phantom."
+          );
+        }
+
+        const connected = await provider.connect();
+        const connectedWallet = connected.publicKey.toString();
+
+        if (connectedWallet !== walletAddress) {
+          throw new Error(
+            `Connected Phantom wallet does not match this disclosed wallet. Connected: ${shortenAddress(
+              connectedWallet
+            )}. Required: ${shortenAddress(walletAddress)}`
+          );
+        }
+
+        if (typeof provider.signMessage !== "function") {
+          throw new Error(
+            "Your Phantom wallet does not support message signing."
+          );
+        }
+
+        const message = buildVerificationMessage({
+          walletAddress,
+          projectSlug: selectedSlug,
+        });
+
+        const encodedMessage = new TextEncoder().encode(message);
+        const signed = await provider.signMessage(encodedMessage, "utf8");
+
+        let signatureBytes: number[];
+
+        if (signed?.signature instanceof Uint8Array) {
+          signatureBytes = Array.from(signed.signature);
+        } else if (Array.isArray(signed?.signature)) {
+          signatureBytes = signed.signature;
+        } else if (signed instanceof Uint8Array) {
+          signatureBytes = Array.from(signed);
+        } else {
+          throw new Error("Phantom did not return a valid signature.");
+        }
+
+        const res = await fetch("/api/wallets/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            projectSlug: selectedSlug,
+            walletAddress,
+            message,
+            signature: signatureBytes,
+          }),
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || !data?.ok) {
+          throw new Error(data?.error || "Wallet ownership verification failed.");
+        }
+
+        setWalletData((current) => {
+          if (!current) return current;
+
+          return {
+            ...current,
+            wallets: current.wallets.map((wallet) =>
+              wallet.address === walletAddress
+                ? {
+                    ...wallet,
+                    verified: true,
+                    verified_at: data.verifiedAt || new Date().toISOString(),
+                  }
+                : wallet
+            ),
+          };
+        });
+
+        setSuccess(
+          `Wallet ${shortenAddress(
+            walletAddress
+          )} has been cryptographically verified by WEB3MB.`
+        );
+
+        await loadWallets(selectedSlug, true);
+      } catch (err: any) {
+        setError(err?.message || "Wallet ownership verification failed.");
+      } finally {
+        setVerifyingAddress(null);
+      }
+    },
+    [selectedSlug, loadWallets]
+  );
 
   useEffect(() => {
     loadProjects();
@@ -384,12 +492,15 @@ export default function VerifyWalletsPage() {
               <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                 WEB3MB / WALLET TRACKING ENGINE
               </div>
+
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
                 Wallet Verification
               </h1>
+
               <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-300">
-                Compare each project’s disclosed wallets and declared token allocations
-                against live Solana token and SOL balances.
+                Compare each project’s disclosed wallets and declared token
+                allocations against live Solana balances, then verify ownership
+                with a Phantom-signed message.
               </p>
             </div>
 
@@ -443,23 +554,31 @@ export default function VerifyWalletsPage() {
             </div>
           ) : null}
 
+          {success ? (
+            <div className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+              {success}
+            </div>
+          ) : null}
+
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Tracked Wallets"
               value={walletData?.count ?? 0}
               hint="Declared project wallets currently being monitored."
             />
+
             <StatCard
               label="Healthy Wallet Reads"
               value={totals.healthyReads}
               hint="Live wallet reads successfully resolved from RPC."
             />
+
             <StatCard
-              label="Allocation Mismatches"
-              value={totals.mismatches}
-              hint="Wallets where live balance differs from declared token allocation."
-              tone={totals.mismatches > 0 ? "warning" : "default"}
+              label="Ownership Verified"
+              value={totals.verifiedCount}
+              hint="Wallets cryptographically verified through Phantom signature."
             />
+
             <StatCard
               label="Coverage Ratio"
               value={`${formatNumber(totals.coverageRatio)}%`}
@@ -470,8 +589,8 @@ export default function VerifyWalletsPage() {
 
           <div className="mt-6 grid gap-4 xl:grid-cols-3">
             <InfoPanel
-              title="Coverage Logic"
-              text="This compares live wallet token balances against the total disclosed allocation for the selected project."
+              title="Ownership Verification"
+              text="The Verify Ownership button asks Phantom to sign a WEB3MB verification message. No funds move. The signature proves the connected wallet controls the disclosed address."
             />
 
             <InfoPanel
@@ -489,25 +608,20 @@ export default function VerifyWalletsPage() {
             />
           </div>
 
-          {totals.coverageRatio > 100 ? (
-            <div className="mt-4 rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4 text-base leading-7 text-amber-200">
-              Coverage is above 100%, which may indicate undeclared tokens,
-              allocation drift, or stale disclosure numbers.
-            </div>
-          ) : null}
-
           <div className="mt-8 rounded-3xl border border-white/10 bg-black/20 p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="min-w-0">
                 <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                   Wallet Tracking Engine
                 </div>
+
                 <h2 className="mt-2 text-2xl font-semibold text-white">
                   Live Disclosed Wallet Reads
                 </h2>
+
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-300">
-                  Compare each disclosed wallet&apos;s declared token allocation with
-                  live token and SOL balances from Solana RPC.
+                  Compare each disclosed wallet&apos;s allocation with live
+                  balances and verify ownership using Phantom message signing.
                 </p>
               </div>
 
@@ -519,13 +633,13 @@ export default function VerifyWalletsPage() {
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
                 <div className="text-xs uppercase tracking-[0.18em] text-emerald-300">
-                  Verified
+                  Ownership Verified
                 </div>
                 <div className="mt-2 text-2xl font-semibold text-white">
                   {totals.verifiedCount}
                 </div>
                 <div className="mt-1 text-sm text-emerald-200/80">
-                  Wallets aligned and funded.
+                  Wallets verified by Phantom signature.
                 </div>
               </div>
 
@@ -570,16 +684,20 @@ export default function VerifyWalletsPage() {
                   const variance = Number(wallet.variance ?? live - declared);
                   const variancePercent = Number(wallet.variancePercent ?? 0);
                   const mismatch = Math.abs(variancePercent) > 2;
-                  const lowSol = Boolean(wallet.lowSol ?? liveSol <= LOW_SOL_THRESHOLD);
+                  const lowSol = Boolean(
+                    wallet.lowSol ?? liveSol <= LOW_SOL_THRESHOLD
+                  );
+                  const ownerVerified = Boolean(wallet.verified);
                   const matchPercent = getMatchPercent(declared, live);
                   const progressTone = getProgressTone(declared, live);
                   const progressStyles = getStatusToneClasses(progressTone);
-                  const cardTone =
-                    mismatch && progressTone === "critical"
+                  const cardTone = ownerVerified
+                    ? "border-emerald-500/30"
+                    : mismatch && progressTone === "critical"
                       ? "border-rose-500/20"
                       : mismatch
-                      ? "border-amber-500/20"
-                      : "border-emerald-500/20";
+                        ? "border-amber-500/20"
+                        : "border-white/10";
 
                   return (
                     <div
@@ -602,15 +720,21 @@ export default function VerifyWalletsPage() {
                               </span>
                             ) : null}
 
+                            {ownerVerified ? (
+                              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-emerald-200">
+                                Owner Verified
+                              </span>
+                            ) : (
+                              <span className="rounded-full border border-zinc-500/20 bg-zinc-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-zinc-300">
+                                Not Owner Verified
+                              </span>
+                            )}
+
                             {mismatch ? (
                               <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-amber-200">
                                 Mismatch
                               </span>
-                            ) : (
-                              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-emerald-200">
-                                Verified
-                              </span>
-                            )}
+                            ) : null}
 
                             {lowSol ? (
                               <span className="rounded-full border border-rose-500/20 bg-rose-500/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-rose-200">
@@ -689,7 +813,9 @@ export default function VerifyWalletsPage() {
                         <div className="mb-2 flex items-center justify-between gap-3 text-sm text-zinc-400">
                           <span>Allocation Match</span>
                           <span className="shrink-0">
-                            {declared > 0 ? `${formatNumber(matchPercent)}%` : "—"}
+                            {declared > 0
+                              ? `${formatNumber(matchPercent)}%`
+                              : "—"}
                           </span>
                         </div>
 
@@ -700,13 +826,37 @@ export default function VerifyWalletsPage() {
                               progressStyles.bar
                             )}
                             style={{
-                              width: `${declared > 0 ? Math.min(matchPercent, 100) : 0}%`,
+                              width: `${
+                                declared > 0 ? Math.min(matchPercent, 100) : 0
+                              }%`,
                             }}
                           />
                         </div>
                       </div>
 
-                      <div className="mt-6 grid gap-3 md:grid-cols-[auto_auto_minmax(0,1fr)] md:items-center">
+                      <div className="mt-6 grid gap-3 md:grid-cols-[auto_auto_auto_minmax(0,1fr)] md:items-center">
+                        <button
+                          onClick={() => verifyWalletOwnership(wallet.address)}
+                          disabled={
+                            verifyingAddress === wallet.address || ownerVerified
+                          }
+                          className={cn(
+                            "inline-flex w-full items-center justify-center rounded-xl border px-4 py-2 text-sm font-black transition md:w-auto",
+                            ownerVerified
+                              ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-200"
+                              : "border-cyan-500/30 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25",
+                            verifyingAddress === wallet.address
+                              ? "cursor-wait opacity-70"
+                              : ""
+                          )}
+                        >
+                          {ownerVerified
+                            ? "Ownership Verified"
+                            : verifyingAddress === wallet.address
+                              ? "Verifying..."
+                              : "Verify Ownership"}
+                        </button>
+
                         <a
                           href={`https://solscan.io/account/${wallet.address}`}
                           target="_blank"
@@ -731,7 +881,9 @@ export default function VerifyWalletsPage() {
                         </button>
 
                         <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-zinc-400">
-                          <span className="block text-zinc-500">Short address</span>
+                          <span className="block text-zinc-500">
+                            Short address
+                          </span>
                           <span className="mt-1 block break-all text-zinc-300">
                             {shortenAddress(wallet.address)}
                           </span>
