@@ -155,7 +155,14 @@ function PublicSidebar({ onNavigate }: { onNavigate?: () => void }) {
                 href="/transparency"
                 className="block rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-black"
               >
-                Transparency Leaderboard
+                Transparency Directory
+              </Link>
+
+              <Link
+                href="/transparency/leaderboard"
+                className="block rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15"
+              >
+                Trust Leaderboard
               </Link>
 
               <Link
@@ -369,6 +376,12 @@ export default function TransparencyPage() {
               </div>
 
               <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/transparency/leaderboard"
+                  className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/15"
+                >
+                  Trust Leaderboard
+                </Link>
                 <Link
                   href="/app"
                   className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/15"
