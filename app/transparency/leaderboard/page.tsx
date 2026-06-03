@@ -6,13 +6,16 @@ export const dynamic = "force-dynamic";
 async function getBaseUrl() {
   const h = await headers();
   const host = h.get("x-forwarded-host") || h.get("host") || "localhost:3000";
-  const proto = h.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+  const proto =
+    h.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+
   return `${proto}://${host}`;
 }
 
 async function getLeaderboard() {
   try {
     const baseUrl = await getBaseUrl();
+
     const res = await fetch(`${baseUrl}/api/transparency/leaderboard`, {
       cache: "no-store",
     });
@@ -26,16 +29,31 @@ async function getLeaderboard() {
 }
 
 function gradeTone(grade: string) {
-  if (grade === "A") return "border-emerald-400/30 bg-emerald-500/15 text-emerald-200";
-  if (grade === "B") return "border-cyan-400/30 bg-cyan-500/15 text-cyan-200";
-  if (grade === "C") return "border-yellow-400/30 bg-yellow-500/15 text-yellow-200";
-  if (grade === "D") return "border-orange-400/30 bg-orange-500/15 text-orange-200";
+  if (grade === "A") {
+    return "border-emerald-400/30 bg-emerald-500/15 text-emerald-200";
+  }
+
+  if (grade === "B") {
+    return "border-cyan-400/30 bg-cyan-500/15 text-cyan-200";
+  }
+
+  if (grade === "C") {
+    return "border-yellow-400/30 bg-yellow-500/15 text-yellow-200";
+  }
+
+  if (grade === "D") {
+    return "border-orange-400/30 bg-orange-500/15 text-orange-200";
+  }
+
   return "border-red-400/30 bg-red-500/15 text-red-200";
 }
 
 function formatPercent(value: number) {
   if (!Number.isFinite(value)) return "0%";
-  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value)}%`;
+
+  return `${new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(value)}%`;
 }
 
 export default async function PublicLeaderboardPage() {
@@ -44,14 +62,17 @@ export default async function PublicLeaderboardPage() {
 
   return (
     <main className="min-h-screen bg-[#050816] text-white">
-     <div className="mb-8 flex items-center">
-  <img
-    src="/WEB3MB-L.png"
-    alt="WEB3MB Transparency Center"
-    className="h-24 w-auto"
-  />
-</div>
       <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mb-8 flex items-center">
+          <Link href="/transparency" className="inline-flex">
+            <img
+              src="/WEB3MB-L.png"
+              alt="WEB3MB Transparency Center"
+              className="h-24 w-auto object-contain"
+            />
+          </Link>
+        </div>
+
         <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] p-6 shadow-2xl md:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -118,29 +139,47 @@ export default async function PublicLeaderboardPage() {
                     </div>
 
                     <div>
-                      <div className="text-xs uppercase text-zinc-500 lg:hidden">Score</div>
+                      <div className="text-xs uppercase text-zinc-500 lg:hidden">
+                        Score
+                      </div>
                       <div className="text-2xl font-black">{project.score}</div>
                     </div>
 
                     <div>
-                      <div className="text-xs uppercase text-zinc-500 lg:hidden">Grade</div>
-                      <span className={`inline-flex rounded-full border px-4 py-2 text-sm font-black ${gradeTone(project.grade)}`}>
+                      <div className="text-xs uppercase text-zinc-500 lg:hidden">
+                        Grade
+                      </div>
+                      <span
+                        className={`inline-flex rounded-full border px-4 py-2 text-sm font-black ${gradeTone(
+                          project.grade
+                        )}`}
+                      >
                         {project.grade}
                       </span>
                     </div>
 
                     <div>
-                      <div className="text-xs uppercase text-zinc-500 lg:hidden">Status</div>
-                      <div className="text-sm font-semibold text-zinc-200">{project.status}</div>
+                      <div className="text-xs uppercase text-zinc-500 lg:hidden">
+                        Status
+                      </div>
+                      <div className="text-sm font-semibold text-zinc-200">
+                        {project.status}
+                      </div>
                     </div>
 
                     <div>
-                      <div className="text-xs uppercase text-zinc-500 lg:hidden">Coverage</div>
-                      <div className="text-sm font-bold">{formatPercent(Number(project.coverageRatio || 0))}</div>
+                      <div className="text-xs uppercase text-zinc-500 lg:hidden">
+                        Coverage
+                      </div>
+                      <div className="text-sm font-bold">
+                        {formatPercent(Number(project.coverageRatio || 0))}
+                      </div>
                     </div>
 
                     <div>
-                      <div className="text-xs uppercase text-zinc-500 lg:hidden">Verified</div>
+                      <div className="text-xs uppercase text-zinc-500 lg:hidden">
+                        Verified
+                      </div>
                       <div className="text-sm font-bold">
                         {project.verifiedWallets}/{project.disclosedWallets}
                       </div>
@@ -159,4 +198,3 @@ export default async function PublicLeaderboardPage() {
     </main>
   );
 }
-warden@WardenOps:~/jtrumphq-monitor$
