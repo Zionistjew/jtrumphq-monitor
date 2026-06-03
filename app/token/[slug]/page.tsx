@@ -385,7 +385,7 @@ function MetricTile({
 
   return (
     <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="truncate text-[10px] uppercase tracking-[0.12em] text-zinc-500 sm:text-[11px] sm:tracking-[0.14em]">
+      <div className="text-[10px] uppercase tracking-[0.12em] text-zinc-500 sm:text-[11px] sm:tracking-[0.14em]">
         {label}
       </div>
 
@@ -2096,7 +2096,7 @@ export default async function TokenPublicPage({
             </div>
           </div>
 
-          <div className="mt-8 grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-8 grid min-w-0 gap-4 sm:grid-cols-2">
             <StatCard
               label="Low SOL Wallets"
               value={lowSolWallets}
