@@ -31,13 +31,11 @@ async function getBaseUrl() {
 async function getLeaderboard() {
   try {
     const baseUrl = await getBaseUrl();
-
     const res = await fetch(`${baseUrl}/api/transparency/leaderboard`, {
       cache: "no-store",
     });
 
     if (!res.ok) return { ok: false, projects: [] };
-
     return await res.json();
   } catch {
     return { ok: false, projects: [] };
@@ -54,21 +52,13 @@ function gradeTone(grade: string) {
 
 function statusTone(status: string) {
   const s = status.toLowerCase();
-
-  if (s.includes("excellent") || s.includes("trusted")) {
-    return "text-emerald-200";
-  }
-
-  if (s.includes("moderate")) {
-    return "text-yellow-200";
-  }
-
+  if (s.includes("excellent") || s.includes("trusted")) return "text-emerald-200";
+  if (s.includes("moderate")) return "text-yellow-200";
   return "text-red-200";
 }
 
 function formatPercent(value: number) {
   if (!Number.isFinite(value)) return "0%";
-
   return `${new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 2,
   }).format(value)}%`;
@@ -89,11 +79,11 @@ function StatBox({
   tone?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-      <div className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <div className="truncate text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
         {label}
       </div>
-      <div className={`mt-3 text-3xl font-black ${tone}`}>{value}</div>
+      <div className={`mt-2 truncate text-2xl font-black ${tone}`}>{value}</div>
     </div>
   );
 }
@@ -111,7 +101,10 @@ export default async function PublicLeaderboardPage() {
     .slice(0, 3);
 
   const averageScore = projects.length
-    ? Math.round(projects.reduce((sum, p) => sum + Number(p.score || 0), 0) / projects.length)
+    ? Math.round(
+        projects.reduce((sum, p) => sum + Number(p.score || 0), 0) /
+          projects.length
+      )
     : 0;
 
   const verifiedProjects = projects.filter(
@@ -120,124 +113,149 @@ export default async function PublicLeaderboardPage() {
 
   return (
     <main className="min-h-screen bg-[#050816] text-white">
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-8 flex items-center justify-between gap-4">
+      <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mb-5 flex items-center justify-between gap-4">
           <Link href="/transparency" className="inline-flex">
             <img
               src="/WEB3MB-L.png"
               alt="WEB3MB Transparency Center"
-              className="h-20 w-auto object-contain sm:h-24"
+              className="h-16 w-auto object-contain sm:h-20"
             />
           </Link>
 
-          <Link
-            href="/app/billing"
-            className="rounded-xl bg-white px-5 py-3 text-center text-sm font-black text-black hover:opacity-90"
-          >
-            Get Listed
-          </Link>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link
+              href="/transparency"
+              className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-center text-xs font-bold hover:bg-white/15 sm:text-sm"
+            >
+              Directory
+            </Link>
+
+            <Link
+              href="/app/billing"
+              className="rounded-xl bg-white px-4 py-2 text-center text-xs font-black text-black hover:opacity-90 sm:text-sm"
+            >
+              Get Listed
+            </Link>
+          </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] p-6 shadow-2xl md:p-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] p-5 shadow-2xl sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <div className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
+              <div className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
                 WEB3MB Transparency Center
               </div>
 
-              <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
+              <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">
                 Public Trust Leaderboard
               </h1>
 
-              <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-300">
+              <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-300">
                 Ranked public view of token projects by WEB3MB Trust Score,
                 wallet coverage, verification progress, and transparency status.
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               <Link
-                href="/transparency"
-                className="rounded-xl border border-white/10 bg-white/10 px-5 py-3 text-center text-sm font-bold hover:bg-white/15"
+                href="/app"
+                className="rounded-xl border border-cyan-400/30 bg-cyan-500/15 px-4 py-2 text-center text-xs font-bold text-cyan-100 hover:bg-cyan-500/25 sm:text-sm"
               >
-                Transparency Directory
+                Owner Hub
               </Link>
 
               <Link
-                href="/app"
-                className="rounded-xl border border-cyan-400/30 bg-cyan-500/15 px-5 py-3 text-center text-sm font-bold text-cyan-100 hover:bg-cyan-500/25"
+                href="/app/projects/new"
+                className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-center text-xs font-bold hover:bg-white/15 sm:text-sm"
               >
-                Owner Hub
+                Create Project
               </Link>
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatBox label="Ranked Projects" value={projects.length} />
-            <StatBox label="Average Score" value={`${averageScore}/100`} tone="text-cyan-200" />
-            <StatBox label="Fully Verified" value={verifiedProjects} tone="text-emerald-200" />
+            <StatBox
+              label="Average Score"
+              value={`${averageScore}/100`}
+              tone="text-cyan-200"
+            />
+            <StatBox
+              label="Fully Verified"
+              value={verifiedProjects}
+              tone="text-emerald-200"
+            />
             <StatBox label="High Risk" value={highRisk.length} tone="text-red-200" />
           </div>
 
-          <div className="mt-8 grid gap-5 lg:grid-cols-2">
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5">
-              <div className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
+          <div className="mt-5 grid gap-4 xl:grid-cols-2">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-200">
                 Top Verified Projects
               </div>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-3 space-y-2">
                 {topVerified.length ? (
                   topVerified.map((project) => (
                     <Link
                       key={project.slug}
                       href={`/token/${project.slug}`}
-                      className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-4 hover:bg-white/[0.04]"
+                      className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-3 hover:bg-white/[0.04]"
                     >
-                      <div>
-                        <div className="font-black">{project.name}</div>
-                        <div className="mt-1 text-sm text-zinc-400">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-black">
+                          {project.name}
+                        </div>
+                        <div className="mt-1 text-xs text-zinc-400">
                           {project.verifiedWallets}/{project.disclosedWallets} wallets verified
                         </div>
                       </div>
-                      <div className="text-xl font-black text-emerald-200">
+                      <div className="shrink-0 text-lg font-black text-emerald-200">
                         {formatPercent(verifiedPercent(project))}
                       </div>
                     </Link>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-zinc-300">
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-zinc-300">
                     No verified projects yet.
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5">
-              <div className="text-xs font-black uppercase tracking-[0.2em] text-red-200">
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-red-200">
                 High Risk Watch
               </div>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-3 space-y-2">
                 {highRisk.length ? (
                   highRisk.map((project) => (
                     <Link
                       key={project.slug}
                       href={`/token/${project.slug}`}
-                      className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-4 hover:bg-white/[0.04]"
+                      className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-3 hover:bg-white/[0.04]"
                     >
-                      <div>
-                        <div className="font-black">{project.name}</div>
-                        <div className="mt-1 text-sm text-zinc-400">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-black">
+                          {project.name}
+                        </div>
+                        <div className="mt-1 text-xs text-zinc-400">
                           Score {project.score} • {project.status}
                         </div>
                       </div>
-                      <span className={`rounded-full border px-3 py-2 text-sm font-black ${gradeTone(project.grade)}`}>
+                      <span
+                        className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black ${gradeTone(
+                          project.grade
+                        )}`}
+                      >
                         {project.grade}
                       </span>
                     </Link>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-zinc-300">
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-zinc-300">
                     No high-risk projects detected.
                   </div>
                 )}
@@ -245,8 +263,8 @@ export default async function PublicLeaderboardPage() {
             </div>
           </div>
 
-          <div className="mt-8 overflow-hidden rounded-2xl border border-white/10">
-            <div className="hidden grid-cols-[80px_1.4fr_120px_120px_150px_150px_140px] gap-4 bg-white/[0.06] px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-zinc-400 lg:grid">
+          <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+            <div className="hidden grid-cols-[70px_1.5fr_90px_90px_140px_120px_110px] gap-3 bg-white/[0.06] px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400 lg:grid">
               <div>Rank</div>
               <div>Project</div>
               <div>Score</div>
@@ -262,15 +280,17 @@ export default async function PublicLeaderboardPage() {
                   <Link
                     key={project.slug}
                     href={`/token/${project.slug}`}
-                    className="grid gap-4 px-5 py-5 transition hover:bg-white/[0.04] lg:grid-cols-[80px_1.4fr_120px_120px_150px_150px_140px] lg:items-center"
+                    className="grid gap-3 px-4 py-3 transition hover:bg-white/[0.04] lg:grid-cols-[70px_1.5fr_90px_90px_140px_120px_110px] lg:items-center"
                   >
-                    <div className="text-2xl font-black text-cyan-300">
+                    <div className="text-xl font-black text-cyan-300">
                       #{project.rank}
                     </div>
 
                     <div className="min-w-0">
-                      <div className="text-xl font-black">{project.name}</div>
-                      <div className="mt-1 flex flex-wrap gap-2 text-sm text-zinc-400">
+                      <div className="truncate text-base font-black">
+                        {project.name}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-2 text-xs text-zinc-400">
                         <span>{project.symbol}</span>
                         <span>/token/{project.slug}</span>
                       </div>
@@ -280,14 +300,18 @@ export default async function PublicLeaderboardPage() {
                       <div className="text-xs uppercase text-zinc-500 lg:hidden">
                         Score
                       </div>
-                      <div className="text-2xl font-black">{project.score}</div>
+                      <div className="text-lg font-black">{project.score}</div>
                     </div>
 
                     <div>
                       <div className="text-xs uppercase text-zinc-500 lg:hidden">
                         Grade
                       </div>
-                      <span className={`inline-flex rounded-full border px-4 py-2 text-sm font-black ${gradeTone(project.grade)}`}>
+                      <span
+                        className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-black ${gradeTone(
+                          project.grade
+                        )}`}
+                      >
                         {project.grade}
                       </span>
                     </div>
@@ -296,7 +320,7 @@ export default async function PublicLeaderboardPage() {
                       <div className="text-xs uppercase text-zinc-500 lg:hidden">
                         Status
                       </div>
-                      <div className={`text-sm font-semibold ${statusTone(project.status)}`}>
+                      <div className={`truncate text-xs font-semibold ${statusTone(project.status)}`}>
                         {project.status}
                       </div>
                     </div>
@@ -305,7 +329,7 @@ export default async function PublicLeaderboardPage() {
                       <div className="text-xs uppercase text-zinc-500 lg:hidden">
                         Coverage
                       </div>
-                      <div className="text-sm font-bold">
+                      <div className="text-xs font-bold">
                         {formatPercent(Number(project.coverageRatio || 0))}
                       </div>
                     </div>
@@ -314,7 +338,7 @@ export default async function PublicLeaderboardPage() {
                       <div className="text-xs uppercase text-zinc-500 lg:hidden">
                         Verified
                       </div>
-                      <div className="text-sm font-bold">
+                      <div className="text-xs font-bold">
                         {project.verifiedWallets}/{project.disclosedWallets}
                       </div>
                     </div>
