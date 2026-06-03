@@ -44,6 +44,13 @@ export default async function PublicLeaderboardPage() {
 
   return (
     <main className="min-h-screen bg-[#050816] text-white">
+     <div className="mb-8 flex items-center">
+  <img
+    src="/WEB3MB-L.png"
+    alt="WEB3MB Transparency Center"
+    className="h-24 w-auto"
+  />
+</div>
       <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] p-6 shadow-2xl md:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -152,3 +159,4 @@ export default async function PublicLeaderboardPage() {
     </main>
   );
 }
+warden@WardenOps:~/jtrumphq-monitor$
