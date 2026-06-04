@@ -2073,7 +2073,7 @@ export default async function TokenPublicPage({
                           </a>
                         ) : null}
 
-                        {wallet.address ? (
+                        {wallet.address && !verified ? (
                           <VerifyWalletButton
                             projectSlug={tokenData.slug}
                             walletAddress={wallet.address}
