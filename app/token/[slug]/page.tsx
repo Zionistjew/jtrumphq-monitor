@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { headers } from "next/headers";
+import VerifyWalletButton from "./verify-wallet-button";
 
 type HolderAnalysis = {
   model?: string;
@@ -2060,7 +2061,7 @@ export default async function TokenPublicPage({
                         </div>
                       </div>
 
-                      <div className="mt-5 grid gap-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
+                      <div className="mt-5 grid gap-4 md:grid-cols-[auto_auto_minmax(0,1fr)] md:items-center">
                         {wallet.address ? (
                           <a
                             href={`https://solscan.io/account/${wallet.address}`}
@@ -2070,6 +2071,14 @@ export default async function TokenPublicPage({
                           >
                             View on Solscan
                           </a>
+                        ) : null}
+
+                        {wallet.address ? (
+                          <VerifyWalletButton
+                            projectSlug={tokenData.slug}
+                            walletAddress={wallet.address}
+                            walletLabel={wallet.label}
+                          />
                         ) : null}
 
                         <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm text-zinc-400">
