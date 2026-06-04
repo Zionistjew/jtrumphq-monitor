@@ -53,13 +53,68 @@ function gradeColor(score: number) {
   };
 }
 
+function tierColor(tier?: string) {
+  const value = String(tier || "").toLowerCase();
+
+  if (value === "platinum") {
+    return {
+      primary: "#C084FC",
+      secondary: "#3B0764",
+      label: "PLATINUM",
+    };
+  }
+
+  if (value === "gold") {
+    return {
+      primary: "#FACC15",
+      secondary: "#422006",
+      label: "GOLD",
+    };
+  }
+
+  if (value === "silver") {
+    return {
+      primary: "#CBD5E1",
+      secondary: "#334155",
+      label: "SILVER",
+    };
+  }
+
+  if (value === "bronze") {
+    return {
+      primary: "#FB923C",
+      secondary: "#431407",
+      label: "BRONZE",
+    };
+  }
+
+  if (value === "starter") {
+    return {
+      primary: "#22D3EE",
+      secondary: "#164E63",
+      label: "STARTER",
+    };
+  }
+
+  return {
+    primary: "#94A3B8",
+    secondary: "#1E293B",
+    label: "UNVERIFIED",
+  };
+}
+
 function escapeXml(value: string) {
-  return value
+  return String(value || "")
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function percentText(value: number) {
+  if (!Number.isFinite(value)) return "0%";
+  return `${value.toFixed(value % 1 === 0 ? 0 : 2)}%`;
 }
 
 export async function GET(
@@ -75,16 +130,11 @@ export async function GET(
       });
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      "https://app.web3mb.com";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.web3mb.com";
 
-    const trustRes = await fetch(
-      `${baseUrl}/api/trust-score/${slug}`,
-      {
-        cache: "no-store",
-      }
-    );
+    const trustRes = await fetch(`${baseUrl}/api/trust-score/${slug}`, {
+      cache: "no-store",
+    });
 
     if (!trustRes.ok) {
       return new NextResponse("Unable to load trust score", {
@@ -103,49 +153,63 @@ export async function GET(
     const project = trustData.project || {};
     const trust = trustData.trust || {};
     const metrics = trustData.metrics || {};
+    const verification = trustData.verification || {};
 
-    const score = normalizeScore(Number(trust.score || 0));
-
+    const score = normalizeScore(Number(trust.score || trustData.score || 0));
     const theme = gradeColor(score);
 
     const verifiedWallets = Number(
-      metrics.verifiedWallets || 0
+      verification.verifiedWallets ??
+        metrics.verifiedWallets ??
+        metrics.ownerVerifiedWallets ??
+        0
     );
 
     const totalWallets = Number(
-      metrics.wallets || 0
+      verification.totalWallets ?? metrics.disclosedWallets ?? 0
     );
 
-    const mismatchCount = Number(
-      metrics.mismatches || 0
+    const verificationRate = Number(
+      verification.verificationRate ??
+        metrics.verificationRate ??
+        (totalWallets > 0 ? (verifiedWallets / totalWallets) * 100 : 0)
     );
 
-    const lowSolCount = Number(
-      metrics.lowSolWallets || 0
+    const tier = String(
+      verification.tier || metrics.verificationTier || "Unverified"
     );
 
-    const generatedDate = new Date().toLocaleDateString(
-      "en-US",
-      {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }
+    const verificationLabel = String(
+      verification.label || "Wallet owner verification coverage"
     );
 
-    const transparencyUrl =
-      `${baseUrl}/token/${slug}`;
+    const trustBonus = Number(verification.scoreBonus || 0);
+
+    const tierTheme = tierColor(tier);
+
+    const mismatchCount = Number(metrics.mismatchWallets || 0);
+    const lowSolCount = Number(metrics.lowSolWallets || 0);
+
+    const generatedDate = new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    const transparencyUrl = `${baseUrl}/token/${slug}`;
+
+    const progressWidth = Math.max(0, Math.min(240, (verificationRate / 100) * 240));
 
     const svg = `
 <svg
   xmlns="http://www.w3.org/2000/svg"
-  width="900"
-  height="260"
-  viewBox="0 0 900 260"
+  width="960"
+  height="300"
+  viewBox="0 0 960 300"
   fill="none"
 >
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="900" y2="260">
+    <linearGradient id="bg" x1="0" y1="0" x2="960" y2="300">
       <stop stop-color="#020617"/>
       <stop offset="1" stop-color="#0F172A"/>
     </linearGradient>
@@ -165,43 +229,43 @@ export async function GET(
   </defs>
 
   <rect
-    width="900"
-    height="260"
-    rx="34"
+    width="960"
+    height="300"
+    rx="36"
     fill="url(#bg)"
   />
 
   <rect
     x="10"
     y="10"
-    width="880"
-    height="240"
-    rx="28"
+    width="940"
+    height="280"
+    rx="30"
     fill="#0B1120"
     stroke="#1E293B"
   />
 
   <circle
-    cx="120"
-    cy="130"
-    r="72"
+    cx="122"
+    cy="146"
+    r="76"
     fill="${theme.secondary}"
   />
 
   <circle
-    cx="120"
-    cy="130"
-    r="60"
+    cx="122"
+    cy="146"
+    r="62"
     fill="url(#score)"
     filter="url(#glow)"
   />
 
   <text
-    x="120"
-    y="145"
+    x="122"
+    y="162"
     text-anchor="middle"
     fill="white"
-    font-size="44"
+    font-size="46"
     font-weight="800"
     font-family="Arial, Helvetica, sans-serif"
   >
@@ -209,8 +273,20 @@ export async function GET(
   </text>
 
   <text
-    x="220"
-    y="78"
+    x="122"
+    y="197"
+    text-anchor="middle"
+    fill="#CBD5E1"
+    font-size="12"
+    font-weight="700"
+    font-family="Arial, Helvetica, sans-serif"
+  >
+    TRUST SCORE
+  </text>
+
+  <text
+    x="225"
+    y="68"
     fill="#F8FAFC"
     font-size="34"
     font-weight="800"
@@ -220,54 +296,124 @@ export async function GET(
   </text>
 
   <text
-    x="220"
-    y="118"
+    x="225"
+    y="105"
     fill="${theme.glow}"
-    font-size="22"
-    font-weight="700"
+    font-size="21"
+    font-weight="800"
     font-family="Arial, Helvetica, sans-serif"
   >
     WEB3MB VERIFIED TRANSPARENCY
   </text>
 
   <text
-    x="220"
-    y="152"
+    x="225"
+    y="137"
     fill="#CBD5E1"
-    font-size="18"
+    font-size="17"
     font-family="Arial, Helvetica, sans-serif"
   >
-    Trust Grade: ${escapeXml(
-      trust.grade || "N/A"
-    )} • ${escapeXml(
-      trust.status || "Unknown"
+    Grade ${escapeXml(trust.grade || trustData.grade || "N/A")} • ${escapeXml(
+      trust.status || trustData.status || "Unknown"
     )}
   </text>
 
+  <rect
+    x="225"
+    y="160"
+    width="270"
+    height="54"
+    rx="16"
+    fill="#020617"
+    stroke="#1E293B"
+  />
+
   <text
-    x="220"
+    x="245"
     y="184"
     fill="#94A3B8"
-    font-size="16"
+    font-size="13"
+    font-weight="700"
     font-family="Arial, Helvetica, sans-serif"
   >
-    Verified Wallets: ${verifiedWallets}/${totalWallets}
+    VERIFICATION TIER
   </text>
 
   <text
-    x="220"
-    y="210"
-    fill="#94A3B8"
-    font-size="16"
+    x="245"
+    y="203"
+    fill="${tierTheme.primary}"
+    font-size="20"
+    font-weight="900"
     font-family="Arial, Helvetica, sans-serif"
   >
-    Mismatches: ${mismatchCount} • Low SOL Warnings: ${lowSolCount}
+    ${escapeXml(tierTheme.label)}
   </text>
 
   <rect
-    x="680"
+    x="515"
+    y="160"
+    width="270"
+    height="54"
+    rx="16"
+    fill="#020617"
+    stroke="#1E293B"
+  />
+
+  <text
+    x="535"
+    y="184"
+    fill="#94A3B8"
+    font-size="13"
+    font-weight="700"
+    font-family="Arial, Helvetica, sans-serif"
+  >
+    VERIFIED WALLETS
+  </text>
+
+  <text
+    x="535"
+    y="203"
+    fill="#E2E8F0"
+    font-size="20"
+    font-weight="900"
+    font-family="Arial, Helvetica, sans-serif"
+  >
+    ${verifiedWallets}/${totalWallets} • ${percentText(verificationRate)}
+  </text>
+
+  <rect
+    x="225"
+    y="234"
+    width="240"
+    height="10"
+    rx="5"
+    fill="#1E293B"
+  />
+
+  <rect
+    x="225"
+    y="234"
+    width="${progressWidth}"
+    height="10"
+    rx="5"
+    fill="${tierTheme.primary}"
+  />
+
+  <text
+    x="225"
+    y="263"
+    fill="#94A3B8"
+    font-size="13"
+    font-family="Arial, Helvetica, sans-serif"
+  >
+    ${escapeXml(verificationLabel)} • Trust Bonus +${trustBonus}
+  </text>
+
+  <rect
+    x="805"
     y="48"
-    width="170"
+    width="110"
     height="46"
     rx="14"
     fill="${theme.secondary}"
@@ -275,45 +421,77 @@ export async function GET(
   />
 
   <text
-    x="765"
+    x="860"
     y="77"
     text-anchor="middle"
     fill="${theme.glow}"
-    font-size="18"
-    font-weight="800"
+    font-size="16"
+    font-weight="900"
     font-family="Arial, Helvetica, sans-serif"
   >
     ${theme.label}
   </text>
 
+  <rect
+    x="805"
+    y="110"
+    width="110"
+    height="46"
+    rx="14"
+    fill="${tierTheme.secondary}"
+    stroke="${tierTheme.primary}"
+  />
+
   <text
-    x="680"
-    y="146"
-    fill="#E2E8F0"
-    font-size="14"
+    x="860"
+    y="139"
+    text-anchor="middle"
+    fill="${tierTheme.primary}"
+    font-size="16"
+    font-weight="900"
     font-family="Arial, Helvetica, sans-serif"
   >
-    Powered by WEB3MB
+    ${escapeXml(tierTheme.label)}
   </text>
 
   <text
-    x="680"
-    y="170"
-    fill="#94A3B8"
+    x="805"
+    y="194"
+    fill="#E2E8F0"
     font-size="13"
     font-family="Arial, Helvetica, sans-serif"
   >
-    ${escapeXml(transparencyUrl)}
+    Mismatches: ${mismatchCount}
   </text>
 
   <text
-    x="680"
-    y="206"
-    fill="#64748B"
+    x="805"
+    y="217"
+    fill="#E2E8F0"
+    font-size="13"
+    font-family="Arial, Helvetica, sans-serif"
+  >
+    Low SOL: ${lowSolCount}
+  </text>
+
+  <text
+    x="805"
+    y="247"
+    fill="#94A3B8"
     font-size="12"
     font-family="Arial, Helvetica, sans-serif"
   >
     Generated ${generatedDate}
+  </text>
+
+  <text
+    x="225"
+    y="286"
+    fill="#64748B"
+    font-size="11"
+    font-family="Arial, Helvetica, sans-serif"
+  >
+    ${escapeXml(transparencyUrl)}
   </text>
 </svg>
 `.trim();
