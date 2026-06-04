@@ -102,6 +102,15 @@ type TrustScoreResponse = {
     grade?: string;
     status?: string;
   };
+  verification?: {
+    verifiedWallets?: number;
+    totalWallets?: number;
+    verificationRate?: number;
+    allWalletsVerified?: boolean;
+    tier?: string;
+    label?: string;
+    scoreBonus?: number;
+  };
   breakdown?: {
     walletScore?: number;
     alertScore?: number;
@@ -1695,8 +1704,69 @@ export default async function TokenPublicPage({
             sellPressure={sellPressure}
             holderAnalysis={holderAnalysis}
           />
+           
+                    {trustData?.verification ? (
+            <div className="mt-8 rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-5 sm:p-6">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
+                    WEB3MB Verification Program
+                  </div>
 
+                  <h2 className="mt-3 text-2xl font-bold text-white">
+                    {trustData.verification.tier} Verification Tier
+                  </h2>
 
+                  <p className="mt-2 text-sm text-cyan-100">
+                    {trustData.verification.label}
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">
+                      Verified Wallets
+                    </div>
+
+                    <div className="mt-2 text-2xl font-black text-white">
+                      {trustData.verification.verifiedWallets}/
+                      {trustData.verification.totalWallets}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">
+                      Verification Rate
+                    </div>
+
+                    <div className="mt-2 text-2xl font-black text-emerald-300">
+                      {trustData.verification.verificationRate}%
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">
+                      Trust Bonus
+                    </div>
+
+                    <div className="mt-2 text-2xl font-black text-cyan-300">
+                      +{trustData.verification.scoreBonus}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">
+                      Verification Tier
+                    </div>
+
+                    <div className="mt-2 text-2xl font-black text-amber-300">
+                      {trustData.verification.tier}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div id="overview" className="mt-8 grid min-w-0 scroll-mt-8 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Disclosed Wallets"
