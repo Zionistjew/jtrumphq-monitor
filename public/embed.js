@@ -2,7 +2,6 @@
   function getBaseUrl() {
     var host = window.location.hostname;
 
-    // Local development
     if (
       host === "localhost" ||
       host === "127.0.0.1" ||
@@ -11,8 +10,12 @@
       return window.location.origin;
     }
 
-    // Production
     return "https://app.web3mb.com";
+  }
+
+  function getAttr(el, name, fallback) {
+    var value = el.getAttribute(name);
+    return value === null || value === "" ? fallback : value;
   }
 
   function buildWidget(el) {
@@ -22,14 +25,41 @@
       return;
     }
 
-    var theme = el.getAttribute("data-theme") || "dark";
-    var width = el.getAttribute("data-width") || "420";
-    var height = el.getAttribute("data-height") || "280";
+    var theme = getAttr(el, "data-theme", "dark");
+    var type = getAttr(el, "data-type", "widget");
+    var width = getAttr(el, "data-width", "420");
+    var height = getAttr(el, "data-height", type === "seal" ? "140" : "720");
+    var baseUrl = getBaseUrl();
+
+    el.innerHTML = "";
+
+    if (type === "seal" || type === "image") {
+      var link = document.createElement("a");
+      link.href = baseUrl + "/token/" + encodeURIComponent(slug);
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+
+      var img = document.createElement("img");
+      img.src = baseUrl + "/api/trust-seal/" + encodeURIComponent(slug);
+      img.alt = "WEB3MB Trust Seal";
+      img.loading = "lazy";
+
+      img.style.width = "100%";
+      img.style.maxWidth = width + "px";
+      img.style.height = "auto";
+      img.style.border = "0";
+      img.style.borderRadius = "24px";
+      img.style.display = "block";
+
+      link.appendChild(img);
+      el.appendChild(link);
+      return;
+    }
 
     var iframe = document.createElement("iframe");
 
     iframe.src =
-      getBaseUrl() +
+      baseUrl +
       "/embed/" +
       encodeURIComponent(slug) +
       "?theme=" +
@@ -51,7 +81,6 @@
     iframe.style.background = "transparent";
     iframe.style.display = "block";
 
-    el.innerHTML = "";
     el.appendChild(iframe);
   }
 
@@ -63,7 +92,6 @@
     }
   }
 
-  // Public API
   window.WEB3MB = {
     refresh: init,
   };
