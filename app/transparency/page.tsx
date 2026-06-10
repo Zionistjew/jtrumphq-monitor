@@ -11,6 +11,13 @@ type TrustFactor = {
   detail: string;
 };
 
+type TrustSealAward = {
+  label: string;
+  emoji: string;
+  tone: string;
+  description: string;
+};
+
 type Project = {
   projectId: number;
   projectSlug: string;
@@ -19,6 +26,10 @@ type Project = {
   score: number;
   riskLevel: string;
   verificationStatus: string;
+  leaderboardRank?: number | null;
+  verificationTier?: string | null;
+  verifiedWallets?: number | null;
+  verificationRate?: number | null;
   factors?: TrustFactor[];
   stats?: {
     trackedWallets: number;
@@ -52,6 +63,117 @@ function verificationBadge(status: string) {
   if (status === "Verified") return "border-cyan-500/30 bg-cyan-500/10 text-cyan-200";
   if (status === "Partial") return "border-amber-500/30 bg-amber-500/10 text-amber-200";
   return "border-red-500/30 bg-red-500/10 text-red-200";
+}
+
+function buildDirectoryAwards(project: Project, displayRank?: number) {
+  const awards: TrustSealAward[] = [];
+  const rank = project.leaderboardRank ?? displayRank ?? null;
+  const tier = String(project.verificationTier || "").toLowerCase();
+  const verifiedWallets = Number(project.verifiedWallets || 0);
+  const coverage = Number(project.stats?.disclosedWalletCoveragePct || 0);
+  const trackedWallets = Number(project.stats?.trackedWallets || 0);
+  const lowSolWarnings = Number(project.stats?.lowSolWarnings || 0);
+
+  if (rank && rank <= 10 && trackedWallets > 0) {
+    awards.push({
+      label: "Top 10 Verified",
+      emoji: "🏆",
+      tone: "border-yellow-300/40 bg-yellow-500/20 text-yellow-100",
+      description:
+        "Ranks in the public WEB3MB Top 10 among projects with live transparency monitoring.",
+    });
+  }
+
+  if (tier === "platinum") {
+    awards.push({
+      label: "Platinum Verified",
+      emoji: "🥇",
+      tone: "border-purple-300/40 bg-purple-500/20 text-purple-100",
+      description: "Highest WEB3MB owner wallet verification tier.",
+    });
+  } else if (tier === "gold") {
+    awards.push({
+      label: "Gold Verified",
+      emoji: "🥈",
+      tone: "border-yellow-300/40 bg-yellow-500/20 text-yellow-100",
+      description: "Strong WEB3MB owner wallet verification coverage.",
+    });
+  } else if (tier === "silver") {
+    awards.push({
+      label: "Silver Verified",
+      emoji: "🥉",
+      tone: "border-slate-300/40 bg-slate-400/20 text-slate-100",
+      description: "Meaningful WEB3MB owner wallet verification coverage.",
+    });
+  }
+
+  if (project.score >= 90) {
+    awards.push({
+      label: "Elite Trust",
+      emoji: "⭐",
+      tone: "border-emerald-300/40 bg-emerald-500/20 text-emerald-100",
+      description: "Earned a WEB3MB Trust Score of 90 or higher.",
+    });
+  } else if (project.score >= 75) {
+    awards.push({
+      label: "Strong Trust",
+      emoji: "✅",
+      tone: "border-cyan-300/40 bg-cyan-500/20 text-cyan-100",
+      description: "Earned a WEB3MB Trust Score of 75 or higher.",
+    });
+  }
+
+  if (coverage >= 90 && trackedWallets > 0) {
+    awards.push({
+      label: "Fully Transparent",
+      emoji: "🔍",
+      tone: "border-blue-300/40 bg-blue-500/20 text-blue-100",
+      description: "High disclosed wallet coverage is available for public review.",
+    });
+  }
+
+  if (lowSolWarnings === 0 && trackedWallets > 0) {
+    awards.push({
+      label: "Treasury Ready",
+      emoji: "⚡",
+      tone: "border-lime-300/40 bg-lime-500/20 text-lime-100",
+      description: "No low SOL operating-wallet warnings are currently detected.",
+    });
+  }
+
+  return awards.slice(0, 4);
+}
+
+function AwardBadges({
+  awards,
+  compact = false,
+  iconsOnly = false,
+}: {
+  awards: TrustSealAward[];
+  compact?: boolean;
+  iconsOnly?: boolean;
+}) {
+  if (!awards.length) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {awards.map((award) => (
+        <span
+          key={award.label}
+          title={award.description}
+          className={cn(
+            "inline-flex rounded-full border font-black",
+            compact
+              ? "px-2 py-1 text-[9px] leading-none"
+              : "px-3 py-1.5 text-xs",
+            award.tone
+          )}
+        >
+          {iconsOnly ? award.emoji : `${award.emoji} ${award.label}`}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function factorBadge(status: string) {
@@ -237,11 +359,47 @@ export default function TransparencyPage() {
   useEffect(() => {
     async function loadProjects() {
       try {
-        const res = await fetch("/api/trust-score", { cache: "no-store" });
-        const data = await res.json();
+        const [trustScoreRes, leaderboardRes] = await Promise.all([
+          fetch("/api/trust-score", { cache: "no-store" }),
+          fetch("/api/transparency/leaderboard", { cache: "no-store" }),
+        ]);
 
-        if (data.ok) {
-          setProjects(data.projects || []);
+        const trustScoreData = await trustScoreRes.json();
+        const leaderboardData = await leaderboardRes.json().catch(() => null);
+
+        if (trustScoreData.ok) {
+          const leaderboardRows = Array.isArray(leaderboardData?.projects)
+            ? leaderboardData.projects
+            : [];
+
+          const enrichedProjects = (trustScoreData.projects || []).map(
+            (project: Project) => {
+              const leaderboardProject = leaderboardRows.find(
+                (row: any) =>
+                  String(row?.slug || "").toLowerCase() ===
+                  String(project.projectSlug || "").toLowerCase()
+              );
+
+              return {
+                ...project,
+                leaderboardRank: leaderboardProject?.rank ?? null,
+                verificationTier:
+                  leaderboardProject?.verificationTier ??
+                  project.verificationTier ??
+                  null,
+                verifiedWallets:
+                  leaderboardProject?.verifiedWallets ??
+                  project.verifiedWallets ??
+                  null,
+                verificationRate:
+                  leaderboardProject?.verificationRate ??
+                  project.verificationRate ??
+                  null,
+              };
+            }
+          );
+
+          setProjects(enrichedProjects);
         }
       } catch (err) {
         console.error("Failed to load transparency leaderboard:", err);
@@ -497,6 +655,13 @@ export default function TransparencyPage() {
                               {project.verificationStatus}
                             </span>
                           </div>
+
+                          <div className="mt-3">
+                            <AwardBadges
+                              awards={buildDirectoryAwards(project, index + 1)}
+                              compact
+                            />
+                          </div>
                         </div>
 
                         <div className="shrink-0 text-right">
@@ -562,25 +727,26 @@ export default function TransparencyPage() {
                 </div>
 
                 <div className="overflow-x-auto rounded-2xl">
-                  <table className="w-full min-w-[920px] text-sm">
+                  <table className="w-full min-w-[980px] table-fixed text-sm">
                     <thead className="bg-white/[0.03]">
                       <tr className="text-left text-xs uppercase tracking-[0.18em] text-zinc-500">
-                        <th className="px-6 py-4">Rank</th>
-                        <th className="px-6 py-4">Project</th>
-                        <th className="px-6 py-4">Symbol</th>
-                        <th className="px-6 py-4">Trust Score</th>
-                        <th className="px-6 py-4">Risk</th>
-                        <th className="px-6 py-4">Verification</th>
-                        <th className="px-6 py-4">Wallets</th>
-                        <th className="px-6 py-4">Flags</th>
-                        <th className="px-6 py-4">View</th>
+                        <th className="w-[70px] px-4 py-4">Rank</th>
+                        <th className="w-[190px] px-4 py-4">Project</th>
+                        <th className="w-[120px] px-4 py-4">Symbol</th>
+                        <th className="w-[120px] px-4 py-4">Trust Score</th>
+                        <th className="w-[110px] px-4 py-4">Risk</th>
+                        <th className="w-[135px] px-4 py-4">Verification</th>
+                        <th className="w-[115px] px-4 py-4">Awards</th>
+                        <th className="w-[90px] px-4 py-4">Wallets</th>
+                        <th className="w-[80px] px-4 py-4">Flags</th>
+                        <th className="w-[120px] px-4 py-4">View</th>
                       </tr>
                     </thead>
 
                     <tbody>
                       {loading ? (
                         <tr>
-                          <td colSpan={9} className="px-6 py-10 text-center text-zinc-400">
+                          <td colSpan={10} className="px-6 py-10 text-center text-zinc-400">
                             Loading leaderboard...
                           </td>
                         </tr>
@@ -595,39 +761,46 @@ export default function TransparencyPage() {
                                 )
                               }
                             >
-                              <td className="px-6 py-4 font-semibold text-white">#{index + 1}</td>
-                              <td className="px-6 py-4">
-                                <div className="font-medium text-white">{project.projectName}</div>
+                              <td className="px-4 py-4 font-semibold text-white">#{index + 1}</td>
+                              <td className="px-4 py-4">
+                                <div className="break-words font-medium text-white">{project.projectName}</div>
                                 <div className="mt-1 text-xs text-zinc-500">{project.projectSlug}</div>
                               </td>
-                              <td className="px-6 py-4 text-zinc-200">{project.projectSymbol}</td>
-                              <td className="px-6 py-4 font-semibold text-cyan-300">{project.score}/100</td>
-                              <td className="px-6 py-4">
+                              <td className="px-4 py-4 text-zinc-200">{project.projectSymbol}</td>
+                              <td className="px-4 py-4 font-semibold text-cyan-300">{project.score}/100</td>
+                              <td className="px-4 py-4">
                                 <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", riskBadge(project.riskLevel))}>
                                   {project.riskLevel}
                                 </span>
                               </td>
-                              <td className="px-6 py-4">
+                              <td className="px-4 py-4">
                                 <span className={cn("rounded-full border px-2.5 py-1 text-xs font-medium", verificationBadge(project.verificationStatus))}>
                                   {project.verificationStatus}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-zinc-200">{project.stats?.trackedWallets ?? 0}</td>
-                              <td className="px-6 py-4 text-zinc-200">{totalFlags(project)}</td>
-                              <td className="px-6 py-4">
+                              <td className="px-4 py-4">
+                                <AwardBadges
+                                  awards={buildDirectoryAwards(project, index + 1).slice(0, 3)}
+                                  compact
+                                  iconsOnly
+                                />
+                              </td>
+                              <td className="px-4 py-4 text-zinc-200">{project.stats?.trackedWallets ?? 0}</td>
+                              <td className="px-4 py-4 text-zinc-200">{totalFlags(project)}</td>
+                              <td className="px-4 py-4 whitespace-nowrap">
                                 <Link
                                   href={`/token/${project.projectSlug}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-500/15"
+                                  className="inline-flex rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-500/15"
                                 >
-                                  View Token
+                                  View
                                 </Link>
                               </td>
                             </tr>
 
                             {expandedProjectId === project.projectId ? (
                               <tr className="border-t border-white/5 bg-black/20">
-                                <td colSpan={9} className="px-6 py-6">
+                                <td colSpan={10} className="px-6 py-6">
                                   <div className="grid gap-4 2xl:grid-cols-[1fr_1.2fr]">
                                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                                       <div className="text-xs uppercase tracking-[0.18em] text-cyan-300">
@@ -650,6 +823,17 @@ export default function TransparencyPage() {
                                         <div className="rounded-xl border border-white/10 bg-black/20 p-4">
                                           <div className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">Coverage</div>
                                           <div className="mt-2 text-2xl font-semibold text-white">{project.stats?.disclosedWalletCoveragePct ?? 0}%</div>
+                                        </div>
+                                      </div>
+
+                                      <div className="mt-5 rounded-2xl border border-yellow-300/20 bg-yellow-500/10 p-4">
+                                        <div className="text-xs uppercase tracking-[0.18em] text-yellow-200">
+                                          WEB3MB Trust Seal Awards
+                                        </div>
+                                        <div className="mt-3">
+                                          <AwardBadges
+                                            awards={buildDirectoryAwards(project, index + 1)}
+                                          />
                                         </div>
                                       </div>
                                     </div>
@@ -684,7 +868,7 @@ export default function TransparencyPage() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={9} className="px-6 py-10 text-center text-zinc-400">
+                          <td colSpan={10} className="px-6 py-10 text-center text-zinc-400">
                             No projects match the current filters.
                           </td>
                         </tr>

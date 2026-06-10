@@ -13,6 +13,8 @@ function isPublicRoute(pathname: string) {
     pathname === "/login" ||
     pathname.startsWith("/token/") ||
     pathname.startsWith("/transparency") ||
+    pathname.startsWith("/verification-registry") ||
+    pathname.startsWith("/embed/") ||
     pathname.startsWith("/checkout/") ||
     pathname.startsWith("/pricing") ||
     pathname.startsWith("/privacy") ||
@@ -38,7 +40,7 @@ export function middleware(req: NextRequest) {
   }
 
   if (pathname === "/") {
-    return NextResponse.redirect(new URL("/app", req.url));
+    return NextResponse.redirect(new URL("/transparency", req.url));
   }
 
   if (pathname === "/dashboard") {
@@ -71,6 +73,6 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|embed.js|api/auth|api/debug/session|api/trust-score|api/trust-seal|api/embed|api/token|api/transparency|api/projects).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|embed.js|api/auth|api/debug/session|api/trust-score|api/trust-seal|api/embed|api/token|api/transparency|api/projects|api/verification-registry).*)",
   ],
 };

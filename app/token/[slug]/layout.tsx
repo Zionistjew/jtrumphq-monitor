@@ -22,7 +22,7 @@ const operationItems = [
 
 function SidebarContent({ onClick }: { onClick?: () => void }) {
   return (
-    <>
+    <div className="flex min-h-full flex-col">
       <div className="p-5 sm:p-6">
         <Link href="/app" onClick={onClick} className="block">
           <img
@@ -94,7 +94,7 @@ function SidebarContent({ onClick }: { onClick?: () => void }) {
         </nav>
       </div>
 
-      <div className="mt-auto border-t border-white/10 p-5 sm:p-6">
+      <div className="border-t border-white/10 p-5 sm:p-6">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
           <div className="text-xs font-black uppercase tracking-[0.25em] text-cyan-300">
             Support
@@ -110,7 +110,7 @@ function SidebarContent({ onClick }: { onClick?: () => void }) {
           </p>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -119,7 +119,7 @@ export default function TokenLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[#030712] text-white">
-      <div className="lg:hidden sticky top-0 z-50 flex items-center justify-between border-b border-white/10 bg-[#070b1a]/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-50 flex items-center justify-between border-b border-white/10 bg-[#070b1a]/95 px-4 py-3 backdrop-blur lg:hidden">
         <Link href="/app">
           <img
             src={LOGO_URL}

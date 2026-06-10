@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { createClient } from "@supabase/supabase-js";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+const HIDDEN_PUBLIC_SLUGS = ["jtrump", "10m"];
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +19,10 @@ const connection = new Connection(
 
 const LOW_SOL_THRESHOLD = 0.01;
 const ALLOCATION_VARIANCE_THRESHOLD = 5;
+
+function isHiddenPublicSlug(slug?: string | null) {
+  return HIDDEN_PUBLIC_SLUGS.includes(String(slug || "").toLowerCase().trim());
+}
 
 function isValidSolanaAddress(address: string) {
   try {
@@ -48,16 +55,14 @@ async function getLiveTokenBalance(wallet: string, mint: string) {
     const owner = new PublicKey(wallet);
     const mintKey = new PublicKey(mint);
 
-    const accounts =
-      await connection.getParsedTokenAccountsByOwner(owner, {
-        mint: mintKey,
-      });
+    const accounts = await connection.getParsedTokenAccountsByOwner(owner, {
+      mint: mintKey,
+    });
 
     let total = 0;
 
     for (const account of accounts.value) {
-      total +=
-        account.account.data.parsed.info.tokenAmount.uiAmount || 0;
+      total += account.account.data.parsed.info.tokenAmount.uiAmount || 0;
     }
 
     return total;
@@ -68,10 +73,7 @@ async function getLiveTokenBalance(wallet: string, mint: string) {
 
 async function getLiveSolBalance(wallet: string) {
   try {
-    const lamports = await connection.getBalance(
-      new PublicKey(wallet)
-    );
-
+    const lamports = await connection.getBalance(new PublicKey(wallet));
     return lamports / 1_000_000_000;
   } catch {
     return null;
@@ -96,52 +98,34 @@ async function calculateTrustScore(project: any) {
 
   const invalidMint = !project.mint || !isValidSolanaAddress(project.mint);
 
-  /*
-  -----------------------------
-  INVALID MINT
-  -----------------------------
-  */
-
   if (invalidMint) {
     score -= 35;
-
     factors.push({
       key: "invalid_mint",
       label: "Invalid Mint",
       impact: -35,
       status: "negative",
-      detail:
-        "Project mint is invalid or missing."
+      detail: "Project mint is invalid or missing.",
     });
   } else {
     score += 5;
-
     factors.push({
       key: "valid_mint",
       label: "Valid Mint",
       impact: 5,
       status: "positive",
-      detail:
-        "Project mint supports on-chain verification."
+      detail: "Project mint supports on-chain verification.",
     });
   }
 
-  /*
-  -----------------------------
-  WALLET DISCLOSURE
-  -----------------------------
-  */
-
   if (trackedWallets === 0) {
     score -= 30;
-
     factors.push({
       key: "no_wallets",
       label: "No Wallet Disclosure",
       impact: -30,
       status: "negative",
-      detail:
-        "No tracked wallets disclosed."
+      detail: "No tracked wallets disclosed.",
     });
   } else if (trackedWallets >= 5) {
     score += 12;
@@ -151,12 +135,6 @@ async function calculateTrustScore(project: any) {
     score += 3;
   }
 
-  /*
-  -----------------------------
-  LIVE WALLET ANALYSIS
-  -----------------------------
-  */
-
   if (!invalidMint && wallets?.length) {
     for (const wallet of wallets) {
       if (!isValidSolanaAddress(wallet.address)) {
@@ -164,67 +142,38 @@ async function calculateTrustScore(project: any) {
         continue;
       }
 
-      const tokenBalance =
-        await getLiveTokenBalance(
-          wallet.address,
-          project.mint
-        );
-
-      const solBalance =
-        await getLiveSolBalance(wallet.address);
+      const tokenBalance = await getLiveTokenBalance(wallet.address, project.mint);
+      const solBalance = await getLiveSolBalance(wallet.address);
 
       if (tokenBalance !== null) {
         healthyWalletReads++;
 
-        const declared =
-          Number(wallet.allocation || 0);
+        const declared = Number(wallet.allocation || 0);
 
         const variance =
           declared > 0
-            ? Math.abs(
-                ((tokenBalance - declared) /
-                  declared) *
-                  100
-              )
+            ? Math.abs(((tokenBalance - declared) / declared) * 100)
             : tokenBalance > 0
-            ? 100
-            : 0;
+              ? 100
+              : 0;
 
-        if (
-          declared === 0 && tokenBalance > 0
-        ) {
+        if (declared === 0 && tokenBalance > 0) {
           allocationMismatches++;
         }
 
-        if (
-          variance >=
-          ALLOCATION_VARIANCE_THRESHOLD
-        ) {
+        if (variance >= ALLOCATION_VARIANCE_THRESHOLD) {
           allocationMismatches++;
         }
       }
 
-      if (
-        solBalance !== null &&
-        solBalance <= LOW_SOL_THRESHOLD
-      ) {
+      if (solBalance !== null && solBalance <= LOW_SOL_THRESHOLD) {
         lowSolWarnings++;
       }
     }
   }
 
-  /*
-  -----------------------------
-  INVALID WALLET PENALTY
-  -----------------------------
-  */
-
   if (invalidWallets > 0) {
-    const penalty =
-      Math.min(
-        invalidWallets * 8,
-        24
-      );
+    const penalty = Math.min(invalidWallets * 8, 24);
 
     score -= penalty;
 
@@ -233,16 +182,9 @@ async function calculateTrustScore(project: any) {
       label: "Invalid Wallets",
       impact: -penalty,
       status: "negative",
-      detail:
-        `${invalidWallets} invalid wallets detected`
+      detail: `${invalidWallets} invalid wallets detected`,
     });
   }
-
-  /*
-  -----------------------------
-  ALLOCATION MISMATCH
-  -----------------------------
-  */
 
   if (allocationMismatches === 0) {
     score += 15;
@@ -252,17 +194,14 @@ async function calculateTrustScore(project: any) {
       label: "Allocation Integrity",
       impact: 15,
       status: "positive",
-      detail:
-        "Declared allocations match live balances."
+      detail: "Declared allocations match live balances.",
     });
   } else {
     let penalty = 0;
 
     if (allocationMismatches === 1) {
       penalty = 45;
-    } else if (
-      allocationMismatches <= 3
-    ) {
+    } else if (allocationMismatches <= 3) {
       penalty = 65;
     } else {
       penalty = 80;
@@ -275,16 +214,9 @@ async function calculateTrustScore(project: any) {
       label: "Allocation Risk",
       impact: -penalty,
       status: "negative",
-      detail:
-        `${allocationMismatches} mismatched wallets detected`
+      detail: `${allocationMismatches} mismatched wallets detected`,
     });
   }
-
-  /*
-  -----------------------------
-  LOW SOL
-  -----------------------------
-  */
 
   if (lowSolWarnings === 0) {
     score += 8;
@@ -293,9 +225,7 @@ async function calculateTrustScore(project: any) {
 
     if (lowSolWarnings === 1) {
       penalty = 15;
-    } else if (
-      lowSolWarnings <= 3
-    ) {
+    } else if (lowSolWarnings <= 3) {
       penalty = 30;
     } else {
       penalty = 45;
@@ -308,25 +238,12 @@ async function calculateTrustScore(project: any) {
       label: "Low SOL Risk",
       impact: -penalty,
       status: "negative",
-      detail:
-        `${lowSolWarnings} wallets may fail operational transactions`
+      detail: `${lowSolWarnings} wallets may fail operational transactions`,
     });
   }
 
-  /*
-  -----------------------------
-  COVERAGE
-  -----------------------------
-  */
-
   const coverage =
-    trackedWallets > 0
-      ? Math.round(
-          (healthyWalletReads /
-            trackedWallets) *
-            100
-        )
-      : 0;
+    trackedWallets > 0 ? Math.round((healthyWalletReads / trackedWallets) * 100) : 0;
 
   if (coverage >= 90) {
     score += 8;
@@ -336,47 +253,12 @@ async function calculateTrustScore(project: any) {
     score -= 12;
   }
 
-  /*
-  -----------------------------
-  HARD CAPS
-  -----------------------------
-  */
+  if (allocationMismatches >= 1 && score > 55) score = 55;
+  if (lowSolWarnings >= 3 && score > 70) score = 70;
+  if (trackedWallets === 0 && score > 45) score = 45;
+  if (invalidMint && score > 30) score = 30;
 
-  if (
-    allocationMismatches >= 1 &&
-    score > 55
-  ) {
-    score = 55;
-  }
-
-  if (
-    lowSolWarnings >= 3 &&
-    score > 70
-  ) {
-    score = 70;
-  }
-
-  if (
-    trackedWallets === 0 &&
-    score > 45
-  ) {
-    score = 45;
-  }
-
-  if (
-    invalidMint &&
-    score > 30
-  ) {
-    score = 30;
-  }
-
-  score = Math.max(
-    0,
-    Math.min(
-      100,
-      Math.round(score)
-    )
-  );
+  score = Math.max(0, Math.min(100, Math.round(score)));
 
   return {
     projectId: project.id,
@@ -384,14 +266,8 @@ async function calculateTrustScore(project: any) {
     projectName: project.name,
     projectSymbol: project.symbol,
     score,
-    riskLevel:
-      getRiskLevel(score),
-    verificationStatus:
-      getVerificationStatus(
-        score,
-        trackedWallets,
-        invalidMint
-      ),
+    riskLevel: getRiskLevel(score),
+    verificationStatus: getVerificationStatus(score, trackedWallets, invalidMint),
     factors,
     stats: {
       trackedWallets,
@@ -400,95 +276,70 @@ async function calculateTrustScore(project: any) {
       lowSolWarnings,
       invalidWallets,
       invalidMint,
-      disclosedWalletCoveragePct:
-        coverage,
+      disclosedWalletCoveragePct: coverage,
     },
   };
 }
 
-export async function GET(
-  req: NextRequest
-) {
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } =
-      new URL(req.url);
-
-    const slug =
-      searchParams.get("slug");
+    const { searchParams } = new URL(req.url);
+    const slug = searchParams.get("slug");
 
     if (slug) {
-      const { data: project } =
-        await supabase
-          .from("projects")
-          .select("*")
-          .eq("slug", slug)
-          .single();
+      const { data: project } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("slug", slug)
+        .single();
 
       if (!project) {
         return NextResponse.json(
           {
             ok: false,
-            error:
-              "Project not found",
+            error: "Project not found",
           },
           { status: 404 }
         );
       }
 
-      const result =
-        await calculateTrustScore(
-          project
-        );
+      const result = await calculateTrustScore(project);
 
       return NextResponse.json({
         ok: true,
         project: result,
         engine: {
           rpc: "Helius",
-          generatedAt:
-            new Date().toISOString(),
-          mode:
-            "single-project",
+          generatedAt: new Date().toISOString(),
+          mode: "single-project",
         },
       });
     }
 
-    const { data: projects } =
-      await supabase
-        .from("projects")
-        .select("*");
+    const { data: projects } = await supabase.from("projects").select("*");
 
-    const scoredProjects =
-      [];
+    const publicProjects = (projects || []).filter(
+      (project: any) => !isHiddenPublicSlug(project.slug)
+    );
 
-    for (const project of projects || []) {
-      const result =
-        await calculateTrustScore(
-          project
-        );
+    const scoredProjects = [];
 
-      scoredProjects.push(
-        result
-      );
+    for (const project of publicProjects) {
+      const result = await calculateTrustScore(project);
+      scoredProjects.push(result);
     }
 
-    scoredProjects.sort(
-      (a, b) =>
-        b.score - a.score
-    );
+    scoredProjects.sort((a, b) => b.score - a.score);
 
     return NextResponse.json({
       ok: true,
-      count:
-        scoredProjects.length,
-      projects:
-        scoredProjects,
+      count: publicProjects.length,
+      hiddenPublicSlugs: HIDDEN_PUBLIC_SLUGS,
+      projects: scoredProjects,
       engine: {
         rpc: "Helius",
-        generatedAt:
-          new Date().toISOString(),
-        mode:
-          "all-projects",
+        generatedAt: new Date().toISOString(),
+        mode: "all-projects",
       },
     });
   } catch (error: any) {
@@ -497,8 +348,7 @@ export async function GET(
     return NextResponse.json(
       {
         ok: false,
-        error:
-          error.message,
+        error: error.message,
       },
       { status: 500 }
     );

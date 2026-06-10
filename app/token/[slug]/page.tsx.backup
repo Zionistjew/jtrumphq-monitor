@@ -152,12 +152,6 @@ function formatPercent(value?: number | null, maximumFractionDigits = 2) {
   return `${formatNumber(value, maximumFractionDigits)}%`;
 }
 
-function formatCoveragePercent(value?: number | null, hasCoverage = true) {
-  if (!hasCoverage) return "N/A";
-
-  return formatPercent(value);
-}
-
 function formatDateTime(value?: string | null) {
   if (!value) return "—";
 
@@ -877,7 +871,6 @@ function RecommendedActionsPanel({
   lowSolWallets,
   verifiedWallets,
   coverageRatio,
-  hasDeclaredAllocations,
   sellPressure,
   holderAnalysis,
 }: {
@@ -885,8 +878,7 @@ function RecommendedActionsPanel({
   mismatchWallets: number;
   lowSolWallets: number;
   verifiedWallets: number;
-  coverageRatio: number | null;
-  hasDeclaredAllocations: boolean;
+  coverageRatio: number;
   sellPressure: SellPressure;
   holderAnalysis: HolderAnalysis;
 }) {
@@ -920,7 +912,7 @@ function RecommendedActionsPanel({
     );
   }
 
-  if (hasDeclaredAllocations && (coverageRatio ?? 0) < 50) {
+  if (coverageRatio < 50) {
     recommended.push(
       "Increase wallet disclosure coverage above 50% of declared supply."
     );
@@ -943,14 +935,10 @@ function RecommendedActionsPanel({
     );
   }
 
-  if (hasDeclaredAllocations && coverageRatio != null && coverageRatio > 25) {
+  if (coverageRatio > 25) {
     positive.push(
       `${formatPercent(coverageRatio)} wallet coverage currently monitored.`
     );
-  }
-
-  if (!hasDeclaredAllocations) {
-    positive.push("Allocation coverage is not applicable until wallet allocations are declared.");
   }
 
   positive.push("Live wallet verification is active.");
@@ -1054,142 +1042,6 @@ function RecommendedActionsPanel({
   );
 }
 
-function TrustSealAwardsPanel({
-  score,
-  trustData,
-  wallets,
-  mismatchWallets,
-  lowSolWallets,
-}: {
-  score?: number;
-  trustData: TrustScoreResponse | null;
-  wallets: WalletRow[];
-  mismatchWallets: number;
-  lowSolWallets: number;
-}) {
-  const awards: {
-    title: string;
-    description: string;
-    icon: string;
-    tone: string;
-  }[] = [];
-
-  const verificationRate = trustData?.verification?.verificationRate ?? 0;
-  const allWalletsVerified =
-    trustData?.verification?.allWalletsVerified ?? false;
-  const tier = trustData?.verification?.tier || "Unverified";
-
-  if (tier === "Platinum" || verificationRate >= 100) {
-    awards.push({
-      icon: "🏆",
-      title: "Platinum Verified",
-      description: "All disclosed project wallets are owner verified.",
-      tone: "border-amber-400/30 bg-amber-500/10 text-amber-100",
-    });
-  }
-
-  if (allWalletsVerified && wallets.length > 0) {
-    awards.push({
-      icon: "🛡",
-      title: "Fully Verified",
-      description: `${wallets.length} of ${wallets.length} disclosed wallets verified.`,
-      tone: "border-emerald-400/30 bg-emerald-500/10 text-emerald-100",
-    });
-  }
-
-  if (typeof score === "number" && score >= 90) {
-    if (score === 100) {
-      awards.push({
-        icon: "💎",
-        title: "Perfect Trust Score",
-        description: "Project achieved a perfect WEB3MB trust score.",
-        tone: "border-cyan-400/30 bg-cyan-500/10 text-cyan-100",
-      });
-    } else {
-      awards.push({
-        icon: "💎",
-        title: "Excellent Trust Score",
-        description: "Project achieved an A-grade WEB3MB trust score.",
-        tone: "border-cyan-400/30 bg-cyan-500/10 text-cyan-100",
-      });
-    }
-  }
-
-  if (wallets.length > 0) {
-    awards.push({
-      icon: "📡",
-      title: "Live Monitoring Enabled",
-      description: "WEB3MB is actively monitoring disclosed project wallets.",
-      tone: "border-blue-400/30 bg-blue-500/10 text-blue-100",
-    });
-  }
-
-  if (mismatchWallets === 0 && lowSolWallets === 0) {
-    awards.push({
-      icon: "⚡",
-      title: "Zero Active Wallet Alerts",
-      description: "No allocation mismatches or low-SOL warnings detected.",
-      tone: "border-purple-400/30 bg-purple-500/10 text-purple-100",
-    });
-  }
-
-  if (!awards.length) {
-    awards.push({
-      icon: "🔎",
-      title: "Monitoring In Progress",
-      description: "WEB3MB is collecting verification and wallet health signals.",
-      tone: "border-white/10 bg-white/[0.04] text-zinc-200",
-    });
-  }
-
-  return (
-    <div className="mt-8 rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/[0.08] via-white/[0.035] to-cyan-500/[0.07] p-5 shadow-2xl shadow-amber-950/10 sm:p-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="max-w-4xl">
-          <div className="text-xs uppercase tracking-[0.24em] text-amber-300">
-            Trust Seal Awards
-          </div>
-
-          <h2 className="mt-3 text-3xl font-semibold text-white">
-            Verified transparency achievements
-          </h2>
-
-          <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-300">
-            Awards are issued automatically from live WEB3MB verification,
-            wallet health, alert, and trust score signals. These badges help
-            investors quickly understand what the project has earned.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-amber-400/20 bg-black/20 px-5 py-4 text-center text-amber-100">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.2em]">
-            Awards Earned
-          </div>
-          <div className="mt-2 text-3xl font-semibold">{awards.length}</div>
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {awards.map((award) => (
-          <div
-            key={award.title}
-            className={`rounded-3xl border p-5 ${award.tone}`}
-          >
-            <div className="text-3xl">{award.icon}</div>
-
-            <div className="mt-4 text-lg font-semibold text-white">
-              {award.title}
-            </div>
-
-            <p className="mt-3 text-sm leading-6 opacity-90">
-              {award.description}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function ExecutiveRiskSummaryPanel({
   score,
@@ -1201,7 +1053,6 @@ function ExecutiveRiskSummaryPanel({
   lowSolWallets,
   verifiedWallets,
   coverageRatio,
-  hasDeclaredAllocations,
 }: {
   score?: number;
   status?: string;
@@ -1211,8 +1062,7 @@ function ExecutiveRiskSummaryPanel({
   mismatchWallets: number;
   lowSolWallets: number;
   verifiedWallets: number;
-  coverageRatio: number | null;
-  hasDeclaredAllocations: boolean;
+  coverageRatio: number;
 }) {
   const overallLevel =
     sellPressure.level === "HIGH" ||
@@ -1261,14 +1111,8 @@ function ExecutiveRiskSummaryPanel({
     );
   }
 
-  if (hasDeclaredAllocations && coverageRatio != null && coverageRatio > 0) {
-    positiveSignals.push(
-      `${formatPercent(coverageRatio)} live coverage ratio detected.`
-    );
-  }
-
-  if (!hasDeclaredAllocations) {
-    positiveSignals.push("Wallet allocations have not yet been disclosed.");
+  if (coverageRatio > 0) {
+    positiveSignals.push(`${formatPercent(coverageRatio)} live coverage ratio detected.`);
   }
 
   if (
@@ -1292,16 +1136,12 @@ function ExecutiveRiskSummaryPanel({
     positiveSignals.push("No positive transparency signals are available yet.");
   }
 
-  const baseInvestorAssessment =
+  const investorAssessment =
     overallLevel === "HIGH"
       ? "This project currently presents elevated operational, concentration, or sell-pressure risk. Investors should review wallet verification, allocation mismatches, liquidity posture, and disclosed wallet health before significant exposure."
       : overallLevel === "MODERATE"
         ? "This project shows moderate transparency risk. Investors should monitor verification progress, wallet health, and concentration exposure as the project matures."
         : "This project currently shows lower disclosed-wallet risk based on available WEB3MB transparency signals, though investors should continue monitoring live wallet activity.";
-
-  const investorAssessment = hasDeclaredAllocations
-    ? baseInvestorAssessment
-    : `${baseInvestorAssessment} Allocation coverage is not scored yet because wallet token allocations have not been declared.`;
 
   return (
     <div className="mt-8 rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-500/[0.09] via-white/[0.04] to-purple-500/[0.08] p-5 shadow-2xl shadow-cyan-950/20 sm:p-6">
@@ -1468,10 +1308,7 @@ export default async function TokenPublicPage({
   ).length;
 
   const coverageRatio =
-    totalDeclaredTokens > 0 ? (totalLive / totalDeclaredTokens) * 100 : null;
-
-  const hasDeclaredAllocations =
-    totalDeclaredTokens > 0 || totalDeclaredPercent > 0;
+    totalDeclaredTokens > 0 ? (totalLive / totalDeclaredTokens) * 100 : 0;
 
   const liveBalances = wallets
     .map((wallet) => Number(wallet.liveTokenBalance || 0))
@@ -1856,43 +1693,18 @@ export default async function TokenPublicPage({
             lowSolWallets={lowSolWallets}
             verifiedWallets={verifiedWallets}
             coverageRatio={coverageRatio}
-            hasDeclaredAllocations={hasDeclaredAllocations}
           />
 
-            <TrustSealAwardsPanel
-            score={score}
-            trustData={trustData}
-            wallets={wallets}
-            mismatchWallets={mismatchWallets}
-            lowSolWallets={lowSolWallets}
-          />
-
-            <RecommendedActionsPanel
+          <RecommendedActionsPanel
             wallets={wallets}
             mismatchWallets={mismatchWallets}
             lowSolWallets={lowSolWallets}
             verifiedWallets={verifiedWallets}
             coverageRatio={coverageRatio}
-            hasDeclaredAllocations={hasDeclaredAllocations}
             sellPressure={sellPressure}
             holderAnalysis={holderAnalysis}
           />
-
-
-  <WhyThisScorePanel
-  score={score}
-  grade={grade}
-  status={status}
-  trustData={trustData}
-  verifiedWallets={verifiedWallets}
-  wallets={wallets}
-  mismatchWallets={mismatchWallets}
-  lowSolWallets={lowSolWallets}
-  coverageRatio={coverageRatio}
-  totalDeclaredPercent={totalDeclaredPercent}
-  hasDeclaredAllocations={hasDeclaredAllocations}
-/>
-
+           
                     {trustData?.verification ? (
             <div className="mt-8 rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-5 sm:p-6">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -1976,12 +1788,8 @@ export default async function TokenPublicPage({
 
             <StatCard
               label="Coverage Ratio"
-              value={formatCoveragePercent(coverageRatio, hasDeclaredAllocations)}
-              hint={
-                hasDeclaredAllocations
-                  ? "Live disclosed balances versus declared total allocation."
-                  : "Coverage is not applicable until wallet allocations are declared."
-              }
+              value={formatPercent(coverageRatio)}
+              hint="Live disclosed balances versus declared total allocation."
             />
           </div>
 
@@ -2005,16 +1813,12 @@ export default async function TokenPublicPage({
 
                 <MetricTile
                   label="Coverage Ratio"
-                  value={formatCoveragePercent(coverageRatio, hasDeclaredAllocations)}
+                  value={formatPercent(coverageRatio)}
                 />
 
                 <MetricTile
                   label="Declared Supply Share"
-                  value={
-                    hasDeclaredAllocations
-                      ? formatPercent(totalDeclaredPercent)
-                      : "Not Declared"
-                  }
+                  value={formatPercent(totalDeclaredPercent)}
                 />
 
                 <MetricTile
@@ -2046,20 +1850,12 @@ export default async function TokenPublicPage({
 
                 <MetricTile
                   label="Declared Token Allocation"
-                  value={
-                    hasDeclaredAllocations
-                      ? formatNumber(totalDeclaredTokens, 3)
-                      : "Not Declared"
-                  }
+                  value={formatNumber(totalDeclaredTokens, 3)}
                 />
 
                 <MetricTile
                   label="Declared Supply Share"
-                  value={
-                    hasDeclaredAllocations
-                      ? formatPercent(totalDeclaredPercent)
-                      : "Not Declared"
-                  }
+                  value={formatPercent(totalDeclaredPercent)}
                 />
 
                 <MetricTile
@@ -2403,127 +2199,6 @@ export default async function TokenPublicPage({
               value={formatNumber(totalLive, 3)}
               hint="Live token balance across disclosed wallets."
             />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-function WhyThisScorePanel({
-  score,
-  grade,
-  status,
-  trustData,
-  verifiedWallets,
-  wallets,
-  mismatchWallets,
-  lowSolWallets,
-  coverageRatio,
-  totalDeclaredPercent,
-  hasDeclaredAllocations,
-}: {
-  score?: number;
-  grade?: string;
-  status?: string;
-  trustData: TrustScoreResponse | null;
-  verifiedWallets: number;
-  wallets: WalletRow[];
-  mismatchWallets: number;
-  lowSolWallets: number;
-  coverageRatio: number | null;
-  totalDeclaredPercent: number;
-  hasDeclaredAllocations: boolean;
-}) {
-  const verificationRate = trustData?.verification?.verificationRate ?? 0;
-  const tier = trustData?.verification?.tier || "Unverified";
-
-  const positives = [
-    `${verifiedWallets} of ${wallets.length} disclosed wallet${wallets.length === 1 ? "" : "s"} owner verified.`,
-    `Verification tier: ${tier}.`,
-    mismatchWallets === 0
-      ? "No allocation mismatches detected."
-      : `${mismatchWallets} allocation mismatch${mismatchWallets === 1 ? "" : "es"} detected.`,
-    lowSolWallets === 0
-      ? "No low SOL wallet warnings detected."
-      : `${lowSolWallets} low SOL wallet warning${lowSolWallets === 1 ? "" : "s"} detected.`,
-  ];
-
-  const explanations = [
-    `Final Trust Score: ${typeof score === "number" ? score : "—"} / 100.`,
-    `Grade: ${grade || "—"}. Status: ${status || "—"}.`,
-    `Owner verification coverage: ${formatPercent(verificationRate)}.`,
-    hasDeclaredAllocations
-      ? `Live coverage ratio: ${formatCoveragePercent(coverageRatio, true)}.`
-      : "Live coverage ratio: N/A because wallet token allocations have not been declared.",
-    hasDeclaredAllocations
-      ? `Declared supply share: ${formatPercent(totalDeclaredPercent)}.`
-      : "Declared supply share: Not declared by project.",
-  ];
-
-  return (
-    <div className="mt-8 rounded-3xl border border-cyan-500/20 bg-cyan-500/[0.06] p-5 shadow-2xl shadow-cyan-950/20 sm:p-6">
-      <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
-        Why This Score?
-      </div>
-
-      <h2 className="mt-3 text-3xl font-semibold text-white">
-        Explainable Trust Score
-      </h2>
-
-      <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-300">
-        WEB3MB separates owner verification from operational trust. A project
-        can be wallet-verified while still receiving a moderate score if live
-        balance coverage, disclosure depth, or operational signals need more
-        evidence.
-      </p>
-
-      <div className="mt-6 grid gap-4 md:grid-cols-5">
-        <MetricTile
-          label="Wallet Score"
-          value={`${trustData?.breakdown?.walletScore ?? "—"} / 40`}
-        />
-        <MetricTile
-          label="Alert Score"
-          value={`${trustData?.breakdown?.alertScore ?? "—"} / 25`}
-        />
-        <MetricTile
-          label="Liquidity Score"
-          value={`${trustData?.breakdown?.liquidityScore ?? "—"} / 20`}
-        />
-        <MetricTile
-          label="Disclosure Score"
-          value={`${trustData?.breakdown?.disclosureScore ?? "—"} / 15`}
-        />
-        <MetricTile
-          label="Verification"
-          value={`${trustData?.verification?.verificationRate ?? "—"}%`}
-        />
-      </div>
-
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-5">
-          <div className="text-xs uppercase tracking-[0.2em] text-emerald-200">
-            Positive Signals
-          </div>
-          <div className="mt-4 grid gap-3">
-            {positives.map((item) => (
-              <div key={item} className="rounded-2xl border border-emerald-500/20 bg-black/20 p-4 text-sm leading-6 text-emerald-100">
-                ✓ {item}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-          <div className="text-xs uppercase tracking-[0.2em] text-zinc-400">
-            Score Explanation
-          </div>
-          <div className="mt-4 grid gap-3">
-            {explanations.map((item) => (
-              <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm leading-6 text-zinc-300">
-                • {item}
-              </div>
-            ))}
           </div>
         </div>
       </div>

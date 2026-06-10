@@ -18,6 +18,12 @@ function shortAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-6)}`;
 }
 
+function shortText(value: string, start = 18, end = 18) {
+  if (!value) return "—";
+  if (value.length <= start + end + 3) return value;
+  return `${value.slice(0, start)}...${value.slice(-end)}`;
+}
+
 export default function AdminVerificationRequestsPage() {
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +33,7 @@ export default function AdminVerificationRequestsPage() {
   async function loadRequests() {
     try {
       setLoading(true);
+      setError("");
 
       const res = await fetch("/api/wallets/verify/pending", {
         cache: "no-store",
@@ -34,13 +41,13 @@ export default function AdminVerificationRequestsPage() {
 
       const data = await res.json();
 
-      if (!data.ok) {
+      if (!res.ok || !data.ok) {
         throw new Error(data.error || "Failed to load requests");
       }
 
       setRequests(data.requests || []);
     } catch (err: any) {
-      setError(err.message);
+      setError(err?.message || "Failed to load requests");
     } finally {
       setLoading(false);
     }
@@ -55,20 +62,18 @@ export default function AdminVerificationRequestsPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          requestId: id,
-        }),
+        body: JSON.stringify({ requestId: id }),
       });
 
       const data = await res.json();
 
-      if (!data.ok) {
+      if (!res.ok || !data.ok) {
         throw new Error(data.error || "Approve failed");
       }
 
       await loadRequests();
     } catch (err: any) {
-      alert(err.message);
+      alert(err?.message || "Approve failed");
     } finally {
       setWorkingId(null);
     }
@@ -83,20 +88,18 @@ export default function AdminVerificationRequestsPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          requestId: id,
-        }),
+        body: JSON.stringify({ requestId: id }),
       });
 
       const data = await res.json();
 
-      if (!data.ok) {
+      if (!res.ok || !data.ok) {
         throw new Error(data.error || "Reject failed");
       }
 
       await loadRequests();
     } catch (err: any) {
-      alert(err.message);
+      alert(err?.message || "Reject failed");
     } finally {
       setWorkingId(null);
     }
@@ -108,7 +111,7 @@ export default function AdminVerificationRequestsPage() {
 
   return (
     <main className="min-h-screen bg-[#050816] text-white">
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mx-auto max-w-[1500px] px-4 py-8">
         <div className="mb-8 flex items-center justify-between gap-4">
           <Link href="/admin/create-project">
             <img
@@ -168,7 +171,7 @@ export default function AdminVerificationRequestsPage() {
           ) : null}
 
           <div className="mt-8 overflow-hidden rounded-2xl border border-white/10">
-            <div className="hidden grid-cols-[1fr_1.3fr_1.8fr_160px_180px] gap-4 bg-white/[0.06] px-5 py-4 text-xs font-black uppercase tracking-[0.15em] text-zinc-400 lg:grid">
+            <div className="hidden grid-cols-[120px_220px_minmax(0,1fr)_150px_180px] gap-4 bg-white/[0.06] px-5 py-4 text-xs font-black uppercase tracking-[0.15em] text-zinc-400 lg:grid">
               <div>Project</div>
               <div>Wallet</div>
               <div>Message</div>
@@ -185,7 +188,7 @@ export default function AdminVerificationRequestsPage() {
                 requests.map((request) => (
                   <div
                     key={request.id}
-                    className="grid gap-4 px-5 py-5 lg:grid-cols-[1fr_1.3fr_1.8fr_160px_180px] lg:items-center"
+                    className="grid gap-4 px-5 py-5 lg:grid-cols-[120px_220px_minmax(0,1fr)_150px_180px] lg:items-center"
                   >
                     <div>
                       <div className="text-xs uppercase text-zinc-500 lg:hidden">
@@ -200,31 +203,35 @@ export default function AdminVerificationRequestsPage() {
                       </Link>
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-xs uppercase text-zinc-500 lg:hidden">
                         Wallet
                       </div>
 
-                      <div className="font-mono text-sm">
+                      <div className="font-mono text-sm font-bold text-white">
                         {shortAddress(request.wallet_address)}
                       </div>
 
-                      <div className="mt-1 break-all text-xs text-zinc-500">
+                      <div className="mt-1 break-all text-xs leading-5 text-zinc-500">
                         {request.wallet_address}
                       </div>
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-xs uppercase text-zinc-500 lg:hidden">
                         Message
                       </div>
 
-                      <div className="line-clamp-2 text-sm text-zinc-300">
-                        {request.message}
+                      <div className="max-w-full break-words text-sm leading-6 text-zinc-300">
+                        {request.message.slice(0, 180)}
+                        {request.message.length > 180 ? "..." : ""}
                       </div>
 
-                      <div className="mt-1 truncate text-xs text-zinc-500">
-                        Signature: {request.signature}
+                      <div className="mt-1 text-xs text-zinc-500">
+                        Signature:
+                        <span className="ml-1 font-mono">
+                          {shortText(request.signature)}
+                        </span>
                       </div>
                     </div>
 
@@ -233,24 +240,27 @@ export default function AdminVerificationRequestsPage() {
                         Date
                       </div>
 
-                      <div className="text-xs text-zinc-400">
-                        {new Date(request.created_at).toLocaleString()}
+                      <div className="text-xs leading-5 text-zinc-400">
+                        {new Date(request.created_at).toLocaleDateString()}
+                      </div>
+                      <div className="text-xs leading-5 text-zinc-500">
+                        {new Date(request.created_at).toLocaleTimeString()}
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
                       <button
                         disabled={workingId === request.id}
                         onClick={() => approveRequest(request.id)}
-                        className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400 disabled:opacity-50"
+                        className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-50"
                       >
-                        Approve
+                        {workingId === request.id ? "Working..." : "Approve"}
                       </button>
 
                       <button
                         disabled={workingId === request.id}
                         onClick={() => rejectRequest(request.id)}
-                        className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-black text-red-200 hover:bg-red-500/20 disabled:opacity-50"
+                        className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-black text-red-200 hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-50"
                       >
                         Reject
                       </button>

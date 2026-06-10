@@ -1,0 +1,1100 @@
+import Link from "next/link";
+import { headers } from "next/headers";
+import VerifyWalletButton from "./verify-wallet-button";
+
+type HolderAnalysis = {
+  model?: string;
+  totalAnalyzedWallets?: number;
+  totalAnalyzedTokens?: number;
+  largestHolderPercent?: number;
+  top10Percent?: number;
+  top20Percent?: number;
+  top50Percent?: number;
+  concentrationRisk?: "LOW" | "MODERATE" | "HIGH" | "UNKNOWN" | string;
+};
+
+type SellPressure = {
+  score?: number;
+  level?: "LOW" | "MODERATE" | "HIGH" | string;
+  teamControlledPercent?: number;
+  liquidityPercent?: number;
+  drivers?: string[];
+  model?: string;
+};
+
+
+type WalletRiskRanking = {
+  rank: number;
+  label: string;
+  category: string;
+  address?: string | null;
+  score: number;
+  level: "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
+  drivers: string[];
+  declaredPercent: number;
+  liveSharePercent: number;
+  variancePercent: number;
+  lowSol: boolean;
+  verified: boolean;
+};
+
+type WalletHealthRanking = {
+  rank: number;
+  label: string;
+  category: string;
+  address?: string | null;
+  score: number;
+  level: "HEALTHY" | "WARNING" | "CRITICAL";
+  drivers: string[];
+  solBalance: number;
+  verified: boolean;
+  variancePercent: number;
+  declaredPercent: number;
+};
+
+type WalletRow = {
+  label?: string | null;
+  category?: string | null;
+  address?: string | null;
+  purpose?: string | null;
+
+  allocation?: number | null;
+  allocationPercent?: number | null;
+  declaredTokenBalance?: number | null;
+  tokenSupply?: number | null;
+
+  liveTokenBalance?: number | null;
+  liveSolBalance?: number | null;
+
+  variance?: number | null;
+  variancePercent?: number | null;
+
+  verified?: boolean | null;
+  lowSol?: boolean | null;
+};
+
+type WalletApiResponse = {
+  ok: boolean;
+  slug: string;
+  name: string;
+  symbol: string;
+  mint?: string | null;
+  count: number;
+  wallets: WalletRow[];
+  holderAnalysis?: HolderAnalysis;
+  sellPressure?: SellPressure;
+};
+
+type TrustScoreResponse = {
+  ok: boolean;
+  project?: {
+    id: number;
+    slug: string;
+    name: string;
+    symbol: string;
+    mint?: string | null;
+  };
+  score?: number;
+  grade?: string;
+  status?: string;
+  trust?: {
+    score?: number;
+    grade?: string;
+    status?: string;
+  };
+  breakdown?: {
+    walletScore?: number;
+    alertScore?: number;
+    liquidityScore?: number;
+    disclosureScore?: number;
+  };
+  metrics?: {
+    walletSourceUsed?: string;
+    disclosedWallets?: number;
+    validWallets?: number;
+    readableWallets?: number;
+    verifiedWallets?: number;
+    mismatchWallets?: number;
+    lowSolWallets?: number;
+    invalidWallets?: number;
+    declaredAllocation?: number;
+    liveDisclosedBalance?: number;
+    coverageRatio?: number;
+    activeCriticalAlerts?: number;
+    activeWarningAlerts?: number;
+    activeInfoAlerts?: number;
+  };
+  issues?: string[];
+  generatedAt?: string;
+  rpc?: string;
+};
+
+function formatNumber(value?: number | null, maximumFractionDigits = 2) {
+  if (value == null || Number.isNaN(value)) return "—";
+
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits,
+  }).format(value);
+}
+
+function formatPercent(value?: number | null, maximumFractionDigits = 2) {
+  if (value == null || Number.isNaN(value)) return "—";
+
+  return `${formatNumber(value, maximumFractionDigits)}%`;
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return date.toLocaleString();
+}
+
+function shortAddress(address?: string | null) {
+  if (!address) return "—";
+  if (address.length <= 14) return address;
+
+  return `${address.slice(0, 6)}...${address.slice(-6)}`;
+}
+
+function getDeclaredTokens(wallet: WalletRow) {
+  return Number(wallet.declaredTokenBalance ?? wallet.allocation ?? 0);
+}
+
+function getAllocationPercent(wallet: WalletRow) {
+  const n = Number(wallet.allocationPercent ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getVarianceTokens(wallet: WalletRow) {
+  return Number(wallet.variance ?? 0);
+}
+
+function getVariancePercent(wallet: WalletRow) {
+  const n = Number(wallet.variancePercent ?? wallet.variance ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function gradeTone(grade?: string) {
+  if (!grade) return "border-white/10 bg-white/5 text-white";
+
+  if (grade.startsWith("A")) {
+    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-200";
+  }
+
+  if (grade.startsWith("B")) {
+    return "border-cyan-500/20 bg-cyan-500/10 text-cyan-200";
+  }
+
+  if (grade.startsWith("C")) {
+    return "border-amber-500/20 bg-amber-500/10 text-amber-200";
+  }
+
+  return "border-rose-500/20 bg-rose-500/10 text-rose-200";
+}
+
+function riskTone(risk?: string) {
+  const value = String(risk || "").toUpperCase();
+
+  if (value === "LOW") {
+    return {
+      border: "border-emerald-500/20",
+      bg: "bg-emerald-500/10",
+      text: "text-emerald-200",
+      label: "LOW",
+    };
+  }
+
+  if (value === "MODERATE") {
+    return {
+      border: "border-amber-500/20",
+      bg: "bg-amber-500/10",
+      text: "text-amber-200",
+      label: "MODERATE",
+    };
+  }
+
+  if (value === "HIGH") {
+    return {
+      border: "border-rose-500/20",
+      bg: "bg-rose-500/10",
+      text: "text-rose-200",
+      label: "HIGH",
+    };
+  }
+
+  return {
+    border: "border-white/10",
+    bg: "bg-white/5",
+    text: "text-zinc-200",
+    label: "UNKNOWN",
+  };
+}
+
+
+function walletRiskTone(level?: string) {
+  const value = String(level || "").toUpperCase();
+
+  if (value === "CRITICAL") {
+    return {
+      border: "border-rose-500/30",
+      bg: "bg-rose-500/15",
+      text: "text-rose-100",
+      label: "CRITICAL",
+    };
+  }
+
+  return riskTone(value);
+}
+
+function walletHealthTone(level?: string) {
+  const value = String(level || "").toUpperCase();
+
+  if (value === "HEALTHY") {
+    return {
+      border: "border-emerald-500/20",
+      bg: "bg-emerald-500/10",
+      text: "text-emerald-200",
+      label: "HEALTHY",
+    };
+  }
+
+  if (value === "WARNING") {
+    return {
+      border: "border-amber-500/20",
+      bg: "bg-amber-500/10",
+      text: "text-amber-200",
+      label: "WARNING",
+    };
+  }
+
+  return {
+    border: "border-rose-500/30",
+    bg: "bg-rose-500/15",
+    text: "text-rose-100",
+    label: "CRITICAL",
+  };
+}
+
+async function getBaseUrl() {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") || h.get("host");
+  const proto = h.get("x-forwarded-proto") || "http";
+
+  const isLocalHost =
+    host?.includes("localhost") || host?.includes("127.0.0.1");
+
+  if (host && isLocalHost) {
+    return `${proto}://${host}`;
+  }
+
+  const configured = process.env.NEXT_PUBLIC_APP_URL;
+
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+
+  if (host) {
+    return `${proto}://${host}`;
+  }
+
+  return "http://localhost:3001";
+}
+
+async function getTokenData(slug: string): Promise<WalletApiResponse | null> {
+  try {
+    const baseUrl = await getBaseUrl();
+
+    const res = await fetch(`${baseUrl}/api/token/${slug}/wallets`, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as WalletApiResponse;
+
+    if (!data.ok) return null;
+
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function getTrustScore(slug: string): Promise<TrustScoreResponse | null> {
+  try {
+    const baseUrl = await getBaseUrl();
+
+    const res = await fetch(`${baseUrl}/api/trust-score/${slug}`, {
+      next: { revalidate: 60 },
+    });
+
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as TrustScoreResponse;
+
+    if (!data.ok) return null;
+
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function StatCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+}) {
+  const displayValue = String(value);
+
+  return (
+    <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-sm">
+      <div className="truncate text-[10px] uppercase tracking-[0.14em] text-zinc-500 sm:text-[11px] sm:tracking-[0.16em]">
+        {label}
+      </div>
+
+      <div
+        className="mt-3 max-w-full overflow-hidden break-words text-2xl font-semibold leading-tight text-white sm:text-3xl xl:text-2xl 2xl:text-3xl"
+        title={displayValue}
+      >
+        {displayValue}
+      </div>
+
+      {hint ? (
+        <div className="mt-3 text-sm leading-6 text-zinc-400">{hint}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function MetricTile({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  const displayValue = String(value);
+
+  return (
+    <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="text-[10px] uppercase tracking-[0.12em] text-zinc-500 sm:text-[11px] sm:tracking-[0.14em]">
+        {label}
+      </div>
+
+      <div
+        className="mt-3 max-w-full overflow-hidden break-words text-base font-semibold leading-tight text-white sm:text-lg xl:text-base 2xl:text-lg"
+        title={displayValue}
+      >
+        {displayValue}
+      </div>
+    </div>
+  );
+}
+
+function SectionJumpNav() {
+  const links = [
+    {
+      href: "#overview",
+      label: "📊 Overview",
+      className:
+        "border-blue-400/30 bg-blue-500/15 text-blue-200 hover:border-blue-300/60 hover:bg-blue-500/25",
+    },
+    {
+      href: "#investor-intelligence",
+      label: "🧠 Intelligence",
+      className:
+        "border-purple-400/30 bg-purple-500/15 text-purple-200 hover:border-purple-300/60 hover:bg-purple-500/25",
+    },
+    {
+      href: "#wallet-health",
+      label: "❤️ Wallet Health",
+      className:
+        "border-emerald-400/30 bg-emerald-500/15 text-emerald-200 hover:border-emerald-300/60 hover:bg-emerald-500/25",
+    },
+    {
+      href: "#wallet-risk-ranking",
+      label: "⚠️ Risk Ranking",
+      className:
+        "border-orange-400/30 bg-orange-500/15 text-orange-200 hover:border-orange-300/60 hover:bg-orange-500/25",
+    },
+    {
+      href: "#live-wallets",
+      label: "🔗 Live Wallets",
+      className:
+        "border-cyan-400/30 bg-cyan-500/15 text-cyan-200 hover:border-cyan-300/60 hover:bg-cyan-500/25",
+    },
+  ];
+
+  return (
+    <div className="mt-8 min-w-0 overflow-hidden rounded-3xl border border-cyan-500/20 bg-cyan-500/[0.04] p-4 shadow-lg shadow-cyan-950/20 backdrop-blur">
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="px-2 text-xs uppercase tracking-[0.22em] text-cyan-300">
+          Jump Navigation
+        </div>
+
+        <div className="grid min-w-0 grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+          {links.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className={`min-w-0 rounded-xl border px-2 py-3 text-center text-[11px] font-bold leading-tight transition sm:px-3 sm:text-xs 2xl:text-sm ${link.className}`}
+              title={link.label}
+            >
+              <span className="block truncate">{link.label}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InvestorIntelligencePanel({
+  holderAnalysis,
+}: {
+  holderAnalysis?: HolderAnalysis;
+}) {
+  const risk = riskTone(holderAnalysis?.concentrationRisk);
+
+  return (
+    <div className="rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
+            Investor Intelligence
+          </div>
+
+          <h2 className="mt-3 text-2xl font-semibold text-white">
+            Holder Concentration
+          </h2>
+
+          <p className="mt-3 text-sm leading-7 text-zinc-300">
+            Concentration analysis based on disclosed project wallets. Full
+            token-holder analysis can be offered later as a premium intelligence
+            feature.
+          </p>
+        </div>
+
+        <div
+          className={`w-fit rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${risk.border} ${risk.bg} ${risk.text}`}
+        >
+          {risk.label} Risk
+        </div>
+      </div>
+
+      <div className="mt-6 grid min-w-0 gap-4 sm:grid-cols-2">
+        <MetricTile
+          label="Largest Holder"
+          value={formatPercent(holderAnalysis?.largestHolderPercent)}
+        />
+
+        <MetricTile
+          label="Top 10 Holders"
+          value={formatPercent(holderAnalysis?.top10Percent)}
+        />
+
+        <MetricTile
+          label="Top 20 Holders"
+          value={formatPercent(holderAnalysis?.top20Percent)}
+        />
+
+        <MetricTile
+          label="Top 50 Holders"
+          value={formatPercent(holderAnalysis?.top50Percent)}
+        />
+      </div>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <MetricTile
+          label="Analyzed Wallets"
+          value={formatNumber(holderAnalysis?.totalAnalyzedWallets || 0, 0)}
+        />
+
+        <MetricTile
+          label="Analyzed Tokens"
+          value={formatNumber(holderAnalysis?.totalAnalyzedTokens || 0, 3)}
+        />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm leading-7 text-zinc-300">
+        <span className="font-medium text-white">Model:</span>{" "}
+        {holderAnalysis?.model || "DISCLOSED_PROJECT_WALLETS"}
+      </div>
+    </div>
+  );
+}
+
+
+function SellPressurePanel({
+  sellPressure,
+}: {
+  sellPressure?: SellPressure;
+}) {
+  const tone = riskTone(sellPressure?.level);
+  const drivers = sellPressure?.drivers || [
+    "No major disclosed sell-pressure drivers detected.",
+  ];
+
+  return (
+    <div className="rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
+            Investor Intelligence
+          </div>
+
+          <h2 className="mt-3 text-2xl font-semibold text-white">
+            Sell Pressure Index
+          </h2>
+
+          <p className="mt-3 text-sm leading-7 text-zinc-300">
+            Risk signal based on disclosed team, treasury, marketing,
+            liquidity, wallet health, and concentration data.
+          </p>
+        </div>
+
+        <div
+          className={`w-fit rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${tone.border} ${tone.bg} ${tone.text}`}
+        >
+          {tone.label}
+        </div>
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-end gap-3">
+        <div className="text-5xl font-semibold text-white">
+          {formatNumber(sellPressure?.score || 0, 0)}
+        </div>
+
+        <div className="pb-2 text-lg text-zinc-400">/ 100</div>
+      </div>
+
+      <div className="mt-6 grid min-w-0 gap-4 sm:grid-cols-2">
+        <MetricTile
+          label="Team Controlled"
+          value={formatPercent(sellPressure?.teamControlledPercent || 0)}
+        />
+
+        <MetricTile
+          label="Liquidity Allocation"
+          value={formatPercent(sellPressure?.liquidityPercent || 0)}
+        />
+      </div>
+
+      <div className="mt-5 grid gap-3">
+        {drivers.map((driver, index) => (
+          <div
+            key={`${driver}-${index}`}
+            className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-sm leading-6 text-zinc-300"
+          >
+            • {driver}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm leading-7 text-zinc-300">
+        <span className="font-medium text-white">Model:</span>{" "}
+        {sellPressure?.model || "DISCLOSED_PROJECT_WALLETS"}
+      </div>
+    </div>
+  );
+}
+
+
+function WalletHealthScorePanel({
+  rankings,
+}: {
+  rankings: WalletHealthRanking[];
+}) {
+  const averageHealth = rankings.length
+    ? Math.round(
+        rankings.reduce((sum, wallet) => sum + wallet.score, 0) /
+          rankings.length
+      )
+    : 0;
+
+  const criticalCount = rankings.filter(
+    (wallet) => wallet.level === "CRITICAL"
+  ).length;
+
+  const warningCount = rankings.filter(
+    (wallet) => wallet.level === "WARNING"
+  ).length;
+
+  return (
+    <div className="mt-8 rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
+            Investor Intelligence
+          </div>
+
+          <h2 className="mt-3 text-3xl font-semibold text-white">
+            Wallet Health Score
+          </h2>
+
+          <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-300">
+            Operational health view of disclosed wallets based on SOL balance,
+            owner verification, allocation variance, and declared allocation
+            size. This is separate from sell-pressure risk.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[420px]">
+          <MetricTile label="Average Health" value={`${averageHealth} / 100`} />
+          <MetricTile label="Critical Wallets" value={criticalCount} />
+          <MetricTile label="Warning Wallets" value={warningCount} />
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4">
+        {rankings.length > 0 ? (
+          rankings.map((wallet) => {
+            const tone = walletHealthTone(wallet.level);
+
+            return (
+              <div
+                key={`${wallet.address}-${wallet.rank}-health`}
+                className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+              >
+                <div className="grid gap-5 xl:grid-cols-[90px_minmax(0,1fr)_minmax(300px,0.85fr)] xl:items-start">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl font-semibold text-white">
+                    #{wallet.rank}
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h3 className="min-w-0 break-words text-xl font-semibold text-white">
+                        {wallet.label}
+                      </h3>
+
+                      <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-cyan-200">
+                        {wallet.category}
+                      </span>
+
+                      <span
+                        className={`rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] ${tone.border} ${tone.bg} ${tone.text}`}
+                      >
+                        {tone.label}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 truncate font-mono text-xs text-zinc-400">
+                      {wallet.address || "—"}
+                    </div>
+
+                    <div className="mt-4 grid gap-2">
+                      {wallet.drivers.slice(0, 3).map((driver, index) => (
+                        <div
+                          key={`${wallet.address}-${driver}-${index}-health`}
+                          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-6 text-zinc-300"
+                        >
+                          • {driver}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid min-w-0 grid-cols-2 gap-3">
+                    <MetricTile
+                      label="Health Score"
+                      value={`${wallet.score} / 100`}
+                    />
+
+                    <MetricTile
+                      label="Live SOL"
+                      value={formatNumber(wallet.solBalance, 6)}
+                    />
+
+                    <MetricTile
+                      label="Variance %"
+                      value={formatPercent(wallet.variancePercent, 3)}
+                    />
+
+                    <MetricTile
+                      label="Verified"
+                      value={wallet.verified ? "Yes" : "No"}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-sm text-zinc-300">
+            Wallet health scoring is not available until disclosed wallet data is
+            loaded.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+function WalletRiskRankingPanel({
+  rankings,
+}: {
+  rankings: WalletRiskRanking[];
+}) {
+  return (
+    <div className="mt-8 rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
+            Investor Intelligence
+          </div>
+
+          <h2 className="mt-3 text-3xl font-semibold text-white">
+            Wallet Risk Ranking
+          </h2>
+
+          <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-300">
+            Ranked view of disclosed wallets based on allocation variance, low
+            SOL balance, verification status, declared allocation size, and live
+            disclosed balance share.
+          </p>
+        </div>
+
+        <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
+          Top {rankings.length} disclosed wallets
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4">
+        {rankings.length > 0 ? (
+          rankings.map((wallet) => {
+            const tone = walletRiskTone(wallet.level);
+
+            return (
+              <div
+                key={`${wallet.address}-${wallet.rank}`}
+                className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+              >
+                <div className="grid gap-5 xl:grid-cols-[90px_minmax(0,1fr)_minmax(300px,0.85fr)] xl:items-start">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl font-semibold text-white">
+                    #{wallet.rank}
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h3 className="min-w-0 break-words text-xl font-semibold text-white">
+                        {wallet.label}
+                      </h3>
+
+                      <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-cyan-200">
+                        {wallet.category}
+                      </span>
+
+                      <span
+                        className={`rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] ${tone.border} ${tone.bg} ${tone.text}`}
+                      >
+                        {tone.label}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 truncate font-mono text-xs text-zinc-400">
+                      {wallet.address || "—"}
+                    </div>
+
+                    <div className="mt-4 grid gap-2">
+                      {wallet.drivers.slice(0, 3).map((driver, index) => (
+                        <div
+                          key={`${wallet.address}-${driver}-${index}`}
+                          className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm leading-6 text-zinc-300"
+                        >
+                          • {driver}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid min-w-0 grid-cols-2 gap-3">
+                    <MetricTile
+                      label="Risk Score"
+                      value={`${wallet.score} / 100`}
+                    />
+
+                    <MetricTile
+                      label="Declared %"
+                      value={formatPercent(wallet.declaredPercent)}
+                    />
+
+                    <MetricTile
+                      label="Live Share"
+                      value={formatPercent(wallet.liveSharePercent)}
+                    />
+
+                    <MetricTile
+                      label="Variance %"
+                      value={formatPercent(wallet.variancePercent, 3)}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-sm text-zinc-300">
+            Wallet risk ranking is not available until disclosed wallet data is
+            loaded.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+function RecommendedActionsPanel({
+  wallets,
+  mismatchWallets,
+  lowSolWallets,
+  verifiedWallets,
+  coverageRatio,
+  sellPressure,
+  holderAnalysis,
+}: {
+  wallets: WalletRow[];
+  mismatchWallets: number;
+  lowSolWallets: number;
+  verifiedWallets: number;
+  coverageRatio: number;
+  sellPressure: SellPressure;
+  holderAnalysis: HolderAnalysis;
+}) {
+  const critical: string[] = [];
+  const recommended: string[] = [];
+  const positive: string[] = [];
+
+  if (lowSolWallets > 0) {
+    critical.push(
+      `Fund ${lowSolWallets} wallet${
+        lowSolWallets === 1 ? "" : "s"
+      } with at least 0.05 SOL for operational transactions.`
+    );
+  }
+
+  if (verifiedWallets === 0 && wallets.length > 0) {
+    critical.push("Complete owner verification for disclosed project wallets.");
+  }
+
+  if (sellPressure.level === "HIGH") {
+    critical.push(
+      "Review treasury, liquidity, and team wallet allocations to reduce sell-pressure risk."
+    );
+  }
+
+  if (mismatchWallets > 0) {
+    recommended.push(
+      `Investigate ${mismatchWallets} wallet${
+        mismatchWallets === 1 ? "" : "s"
+      } with allocation mismatches.`
+    );
+  }
+
+  if (coverageRatio < 50) {
+    recommended.push(
+      "Increase wallet disclosure coverage above 50% of declared supply."
+    );
+  }
+
+  if (
+    holderAnalysis.concentrationRisk === "HIGH" ||
+    holderAnalysis.concentrationRisk === "MODERATE"
+  ) {
+    recommended.push(
+      "Reduce concentration risk through broader token distribution."
+    );
+  }
+
+  if (wallets.length > 0) {
+    positive.push(
+      `${wallets.length} project wallet${
+        wallets.length === 1 ? "" : "s"
+      } disclosed.`
+    );
+  }
+
+  if (coverageRatio > 25) {
+    positive.push(
+      `${formatPercent(coverageRatio)} wallet coverage currently monitored.`
+    );
+  }
+
+  positive.push("Live wallet verification is active.");
+  positive.push("WEB3MB transparency monitoring is enabled.");
+
+  return (
+    <div className="mt-8 rounded-3xl border border-white/10 bg-black/20 p-5 sm:p-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="max-w-4xl">
+          <div className="text-xs uppercase tracking-[0.22em] text-cyan-300">
+            Recommended Actions
+          </div>
+
+          <h2 className="mt-3 text-3xl font-semibold text-white">
+            Operational Guidance
+          </h2>
+
+          <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-300">
+            Actionable recommendations generated from wallet health,
+            verification status, allocation variance, concentration analysis,
+            and sell-pressure monitoring.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-4 text-center text-cyan-200">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.2em]">
+            Launch Readiness
+          </div>
+
+          <div className="mt-2 text-2xl font-semibold">
+            {critical.length ? "Action Needed" : "Improving"}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-3">
+        <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-5">
+          <div className="text-xs uppercase tracking-[0.2em] text-red-200">
+            Critical
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {critical.length ? (
+              critical.map((item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-red-500/20 bg-black/20 p-4 text-sm leading-6 text-red-100"
+                >
+                  🔴 {item}
+                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-green-500/20 bg-black/20 p-4 text-sm leading-6 text-green-100">
+                No critical actions detected.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/10 p-5">
+          <div className="text-xs uppercase tracking-[0.2em] text-yellow-200">
+            Recommended
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {recommended.length ? (
+              recommended.map((item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-yellow-500/20 bg-black/20 p-4 text-sm leading-6 text-yellow-100"
+                >
+                  🟡 {item}
+                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-green-500/20 bg-black/20 p-4 text-sm leading-6 text-green-100">
+                No additional recommended actions at this time.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-green-500/20 bg-green-500/10 p-5">
+          <div className="text-xs uppercase tracking-[0.2em] text-green-200">
+            Positive Progress
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {positive.map((item) => (
+              <div
+                key={item}
+                className="rounded-2xl border border-green-500/20 bg-black/20 p-4 text-sm leading-6 text-green-100"
+              >
+                🟢 {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function ExecutiveRiskSummaryPanel({
+  score,
+  status,
+  holderAnalysis,
+  sellPressure,
+  wallets,
+  mismatchWallets,
+  lowSolWallets,
+  verifiedWallets,
+  coverageRatio,
+}: {
+  score?: number;
+  status?: string;
+  holderAnalysis: HolderAnalysis;
+  sellPressure: SellPressure;
+  wallets: WalletRow[];
+  mismatchWallets: number;
+  lowSolWallets: number;
+  verifiedWallets: number;
+  coverageRatio: number;
+}) {
+  const overallLevel =
+    sellPressure.level === "HIGH" ||
+    holderAnalysis.concentrationRisk === "HIGH" ||
+    (typeof score === "number" && score < 60)
+      ? "HIGH"
+      : sellPressure.level === "MODERATE" ||
+          holderAnalysis.concentrationRisk === "MODERATE" ||
+          (typeof score === "number" && score < 80)
+        ? "MODERATE"
+        : "LOW";
+
+  const tone = riskTone(overallLevel);
+
+  const primaryRisks: string[] = [];
+
+  if (mismatchWallets > 0) {
+    primaryRisks.push(
+      `${mismatchWallets} wallet${mismatchWallets === 1 ? "" : "s"} show allocation mismatch.`
+    );
+  }
+
+  if (lowSolWallets > 0) {
+    primaryRisks.push(
+      `${lowSolWallets} wallet${lowSolWallets === 1 ? "" : "s"} have low SOL balance.`
+    );
+  }
+
+  if (verifiedWallets === 0 && wallets.length > 0) {
+    primaryRisks.push("No disclosed wallets have owner verification yet.");
+  }
+
+  if (holderAnalysis.concentrationRisk === "HIGH") {
+    primaryRisks.push("Disclosed wallet concentration risk is high.");
+  }
+
+  if (sellPressure.level === "HIGH") {
+    primaryRisks.push("Sell Pressure Index is elevated.");
+  }
+
+  const positiveSignals: string[] = [];
+
+  if (wallets.length > 0) {
+    positiveSignals.push(

@@ -46,10 +46,23 @@ function getBaseUrl(req: NextRequest) {
 }
 
 function getScoreStatus(score: number) {
-  if (score >= 90) return { grade: "A", status: "Excellent" };
-  if (score >= 80) return { grade: "B", status: "Trusted" };
-  if (score >= 70) return { grade: "C", status: "Moderate" };
-  if (score >= 60) return { grade: "D", status: "Warning" };
+ if (score === 100) return { grade: "A+", status: "Perfect" };
+
+if (score >= 95) return { grade: "A", status: "Excellent" };
+
+if (score >= 90) return { grade: "A-", status: "Excellent" };
+
+if (score >= 85) return { grade: "B+", status: "Trusted" };
+
+if (score >= 80) return { grade: "B", status: "Trusted" };
+
+if (score >= 75) return { grade: "B-", status: "Trusted" };
+
+if (score >= 70) return { grade: "C", status: "Moderate" };
+
+if (score >= 60) return { grade: "D", status: "Warning" };
+
+return { grade: "F", status: "High Risk" };
 
   return { grade: "F", status: "High Risk" };
 }
@@ -244,28 +257,40 @@ export async function GET(
 
     score = normalize(score);
 
-    const { grade, status } = getScoreStatus(score);
+    let { grade, status } = getScoreStatus(score);
 
     const walletScore = normalize(
-      40 - mismatchCount * 10 - lowSolCount * 4 + ownerVerifiedCount * 5
-    );
+  40 - mismatchCount * 10 - lowSolCount * 4,
+  0,
+  40
+);
 
-    const alertScore = normalize(25 - mismatchCount * 5 - lowSolCount * 3);
+const alertScore = normalize(25 - mismatchCount * 5 - lowSolCount * 3, 0, 25);
 
-    const liquidityScore = normalize(20 - lowSolCount * 4);
+const liquidityScore = normalize(20 - lowSolCount * 4, 0, 20);
 
-    const disclosureScore = normalize(
-      walletList.length > 0
-        ? Math.min(15, walletList.length * 3) +
-            Math.min(10, ownerVerifiedCount * 2)
-        : 0,
-      0,
-      25
-    );
+const disclosureScore = normalize(
+  walletList.length > 0 ? Math.min(15, walletList.length * 5) : 0,
+  0,
+  15
+);
 
-    const verificationScore = normalize(
-      walletList.length > 0 ? verificationRate : 0
-    );
+const verificationScore = normalize(
+  walletList.length > 0 ? verificationRate : 0,
+  0,
+  100
+);
+
+score = normalize(
+  walletScore + alertScore + liquidityScore + disclosureScore,
+  0,
+  100
+);
+
+const finalStatus = getScoreStatus(score);
+
+grade = finalStatus.grade;
+status = finalStatus.status;
 
     const issues: string[] = [];
     const positiveSignals: string[] = [];

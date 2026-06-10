@@ -17,15 +17,6 @@ function normalizeScore(score: number) {
 }
 
 function gradeColor(score: number) {
-    if (score === 100) {
-    return {
-      primary: "#10B981",
-      secondary: "#064E3B",
-      glow: "#34D399",
-      label: "PERFECT",
-    };
-  }
-
   if (score >= 90) {
     return {
       primary: "#10B981",
@@ -132,6 +123,18 @@ function escapeXml(value: string) {
 function percentText(value: number) {
   if (!Number.isFinite(value)) return "0%";
   return `${value.toFixed(value % 1 === 0 ? 0 : 2)}%`;
+}
+
+function tierRank(tier?: string) {
+  const value = String(tier || "").toLowerCase();
+
+  if (value === "platinum") return 5;
+  if (value === "gold") return 4;
+  if (value === "silver") return 3;
+  if (value === "bronze") return 2;
+  if (value === "starter") return 1;
+
+  return 0;
 }
 
 function buildAwards({
@@ -336,13 +339,9 @@ export async function GET(
 
     const transparencyUrl = `${baseUrl}/token/${slug}`;
 
-    const progressWidth = Math.max(
-      0,
-      Math.min(240, (verificationRate / 100) * 240)
-    );
+    const progressWidth = Math.max(0, Math.min(240, (verificationRate / 100) * 240));
 
     const leaderboardRank = await getLeaderboardRank(baseUrl, slug);
-
     const awards = buildAwards({
       score,
       tier,
@@ -352,13 +351,13 @@ export async function GET(
 
     const awardSvg = awards.length
       ? awards
-          .map((award, index) => renderAwardPill(award, 225 + index * 162, 292))
+          .map((award, index) => renderAwardPill(award, 225 + index * 162, 250))
           .join("\n\n")
       : `
   <rect
     x="225"
-    y="292"
-    width="190"
+    y="250"
+    width="170"
     height="34"
     rx="17"
     fill="#1E293B"
@@ -366,8 +365,8 @@ export async function GET(
   />
 
   <text
-    x="320"
-    y="314"
+    x="310"
+    y="272"
     text-anchor="middle"
     fill="#CBD5E1"
     font-size="12"
@@ -382,12 +381,12 @@ export async function GET(
 <svg
   xmlns="http://www.w3.org/2000/svg"
   width="960"
-  height="380"
-  viewBox="0 0 960 380"
+  height="330"
+  viewBox="0 0 960 330"
   fill="none"
 >
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="960" y2="380">
+    <linearGradient id="bg" x1="0" y1="0" x2="960" y2="330">
       <stop stop-color="#020617"/>
       <stop offset="1" stop-color="#0F172A"/>
     </linearGradient>
@@ -408,7 +407,7 @@ export async function GET(
 
   <rect
     width="960"
-    height="380"
+    height="330"
     rx="36"
     fill="url(#bg)"
   />
@@ -417,7 +416,7 @@ export async function GET(
     x="10"
     y="10"
     width="940"
-    height="360"
+    height="310"
     rx="30"
     fill="#0B1120"
     stroke="#1E293B"
@@ -580,7 +579,7 @@ export async function GET(
 
   <text
     x="225"
-    y="266"
+    y="246"
     fill="#94A3B8"
     font-size="13"
     font-family="Arial, Helvetica, sans-serif"
@@ -666,7 +665,7 @@ export async function GET(
 
   <text
     x="225"
-    y="354"
+    y="310"
     fill="#64748B"
     font-size="11"
     font-family="Arial, Helvetica, sans-serif"
@@ -684,8 +683,11 @@ export async function GET(
       },
     });
   } catch (error: any) {
-    return new NextResponse(error?.message || "Trust seal generation failed", {
-      status: 500,
-    });
+    return new NextResponse(
+      error?.message || "Trust seal generation failed",
+      {
+        status: 500,
+      }
+    );
   }
 }
