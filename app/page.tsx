@@ -56,7 +56,42 @@ const plans = [
   },
 ];
 
-export default function HomePage() {
+type RegistryStats = {
+  verifiedWallets: number;
+  verifiedProjects: number;
+  platinumProjects: number;
+};
+
+async function getRegistryStats(): Promise<RegistryStats> {
+  try {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://app.web3mb.com";
+
+    const res = await fetch(`${baseUrl}/api/verification-registry`, {
+      cache: "no-store",
+    });
+
+    const data = await res.json();
+
+    return {
+      verifiedWallets: data?.stats?.verifiedWallets || 0,
+      verifiedProjects: data?.stats?.verifiedProjects || 0,
+      platinumProjects: data?.stats?.platinumProjects || 0,
+    };
+  } catch {
+    return {
+      verifiedWallets: 0,
+      verifiedProjects: 0,
+      platinumProjects: 0,
+    };
+  }
+}
+
+export default async function HomePage() {
+  const registryStats = await getRegistryStats();
+
   return (
     <main className="min-h-screen bg-[#050816] text-white">
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -221,7 +256,9 @@ export default function HomePage() {
                 <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                   Verified Wallets
                 </div>
-                <div className="mt-3 text-4xl font-black text-white">4</div>
+                <div className="mt-3 text-4xl font-black text-white">
+                  {registryStats.verifiedWallets}
+                </div>
                 <div className="mt-2 text-sm text-zinc-400">
                   Owner-verified wallet records.
                 </div>
@@ -231,7 +268,9 @@ export default function HomePage() {
                 <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                   Verified Projects
                 </div>
-                <div className="mt-3 text-4xl font-black text-white">1</div>
+                <div className="mt-3 text-4xl font-black text-white">
+                  {registryStats.verifiedProjects}
+                </div>
                 <div className="mt-2 text-sm text-zinc-400">
                   Listed in the public registry.
                 </div>
@@ -241,7 +280,9 @@ export default function HomePage() {
                 <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                   Platinum Projects
                 </div>
-                <div className="mt-3 text-4xl font-black text-white">1</div>
+                <div className="mt-3 text-4xl font-black text-white">
+                  {registryStats.platinumProjects}
+                </div>
                 <div className="mt-2 text-sm text-zinc-400">
                   Full wallet verification achieved.
                 </div>
