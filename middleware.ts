@@ -40,8 +40,8 @@ export function middleware(req: NextRequest) {
   }
 
   if (pathname === "/") {
-    return NextResponse.redirect(new URL("/transparency", req.url));
-  }
+  return NextResponse.next();
+}
 
   if (pathname === "/dashboard") {
     return NextResponse.redirect(new URL("/app", req.url));

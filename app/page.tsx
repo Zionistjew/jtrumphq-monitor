@@ -1,121 +1,308 @@
-import Image from "next/image";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-const mainCards = [
+const features = [
   {
-    title: "Pricing",
-    description: "Compare plans and choose the best transparency package for your project.",
-    href: "/pricing",
+    title: "Wallet Verification",
+    description:
+      "Verify treasury, team, liquidity, and marketing wallets so investors can see public ownership proof.",
+    icon: "✅",
   },
   {
-    title: "Crypto Checkout",
-    description: "Pay with Solana and activate access instantly.",
-    href: "/checkout/crypto?plan=starter",
+    title: "Trust Scores",
+    description:
+      "Generate explainable WEB3MB trust scores based on wallet health, alerts, liquidity, and disclosure depth.",
+    icon: "📊",
   },
   {
-    title: "User Dashboard",
-    description: "View your active plan, status, and account access.",
-    href: "/dashboard",
+    title: "Trust Seal Awards",
+    description:
+      "Earn public badges like Platinum Verified, Perfect Trust Score, and Fully Verified.",
+    icon: "🏆",
   },
   {
-    title: "Admin Login",
-    description: "Access the admin area to manage projects and platform settings.",
-    href: "/admin/login",
-  },
-  {
-    title: "Create Project",
-    description: "Create and manage a new token transparency project.",
-    href: "/admin/create-project",
-  },
-  {
-    title: "Transparency",
-    description: "Browse public transparency dashboards and project visibility pages.",
-    href: "/transparency",
+    title: "Investor Reports",
+    description:
+      "Give communities a public dashboard with risk summaries, wallet monitoring, and audit-style reporting.",
+    icon: "📄",
   },
 ];
 
-const planButtons = [
+const links = [
+  { label: "View Demo Dashboard", href: "/token/web3mb-demo" },
+  { label: "Verification Registry", href: "/verification-registry" },
+  { label: "Leaderboard", href: "/transparency/leaderboard" },
+];
+
+const plans = [
   {
-    label: "Starter Checkout",
-    href: "/checkout/crypto?plan=starter",
+    name: "Launch Pass",
+    price: "$149",
+    description: "One-time launch verification package for early projects.",
+    href: "/app/billing",
   },
   {
-    label: "Pro Checkout",
-    href: "/checkout/crypto?plan=pro",
+    name: "Starter",
+    price: "$99/mo",
+    description: "For one project with core wallet verification and trust scoring.",
+    href: "/app/billing",
   },
   {
-    label: "Enterprise Checkout",
-    href: "/checkout/crypto?plan=enterprise",
+    name: "Growth",
+    price: "$299/mo",
+    description: "For teams managing multiple verified transparency dashboards.",
+    href: "/app/billing",
   },
 ];
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-black text-white">
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <div className="flex flex-col items-center text-center">
-          <div className="mb-6 flex justify-center">
-            <Image
-              src="/MB-TC.png"
-              alt="WEB3MB Transparency Center Logo"
-              width={240}
-              height={120}
-              priority
-              unoptimized
-              className="h-auto w-auto object-contain"
+    <main className="min-h-screen bg-[#050816] text-white">
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="flex flex-col gap-5 border-b border-white/10 pb-8 md:flex-row md:items-center md:justify-between">
+          <Link href="/">
+            <img
+              src="/WEB3MB-L.png"
+              alt="WEB3MB"
+              className="h-20 w-auto object-contain"
             />
-          </div>
+          </Link>
 
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            WEB3MB Transparency Center
-          </h1>
-
-          <p className="mt-4 max-w-3xl text-base text-zinc-300 sm:text-lg">
-            A crypto transparency SaaS platform for token monitoring, investor
-            confidence, and project accountability.
-          </p>
-        </div>
-
-        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {mainCards.map((card) => (
+          <nav className="flex flex-wrap gap-3">
             <Link
-              key={card.title}
-              href={card.href}
-              className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-6 shadow-lg transition hover:-translate-y-1 hover:border-zinc-600 hover:bg-zinc-900"
+              href="/transparency"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold hover:bg-white/10"
             >
-              <h2 className="text-xl font-semibold text-white">{card.title}</h2>
-              <p className="mt-3 text-sm leading-6 text-zinc-400">
-                {card.description}
-              </p>
-              <span className="mt-5 inline-block text-sm font-medium text-cyan-400">
-                Open →
-              </span>
+              Directory
             </Link>
-          ))}
-        </div>
 
-        <div className="mt-14 rounded-3xl border border-zinc-800 bg-zinc-950/80 p-8">
-          <div className="text-center">
-            <h2 className="text-2xl font-semibold">Direct Plan Checkout</h2>
-            <p className="mt-3 text-sm text-zinc-400">
-              Jump straight into checkout for the plan you want.
+            <Link
+              href="/verification-registry"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold hover:bg-white/10"
+            >
+              Registry
+            </Link>
+
+            <Link
+              href="/app/billing"
+              className="rounded-xl border border-cyan-400/30 bg-cyan-500/15 px-4 py-3 text-sm font-black text-cyan-100 hover:bg-cyan-500/25"
+            >
+              Get Verified
+            </Link>
+          </nav>
+        </header>
+
+        <section className="grid gap-10 py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div>
+            <div className="inline-flex rounded-full border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-cyan-300">
+              Crypto Transparency Layer
+            </div>
+
+            <h1 className="mt-6 max-w-5xl text-4xl font-black tracking-tight sm:text-6xl lg:text-7xl">
+              Make your crypto project easier to trust.
+            </h1>
+
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-zinc-300">
+              WEB3MB verifies project wallets, generates investor-facing trust
+              scores, issues public trust seal awards, and gives communities a
+              transparent dashboard they can inspect before they invest.
             </p>
+
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+              <Link
+                href="/app/billing"
+                className="rounded-2xl bg-white px-7 py-4 text-center text-sm font-black text-black hover:bg-zinc-200"
+              >
+                Get Verified
+              </Link>
+
+              <Link
+                href="/token/web3mb-demo"
+                className="rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-7 py-4 text-center text-sm font-black text-cyan-100 hover:bg-cyan-500/25"
+              >
+                View Live Demo
+              </Link>
+            </div>
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <div className="text-3xl font-black">100</div>
+                <div className="mt-1 text-sm text-zinc-400">
+                  Perfect demo trust score
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <div className="text-3xl font-black">A+</div>
+                <div className="mt-1 text-sm text-zinc-400">
+                  WEB3MB trust grade
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <div className="text-3xl font-black">Platinum</div>
+                <div className="mt-1 text-sm text-zinc-400">
+                  Verification tier
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {planButtons.map((plan) => (
+          <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/[0.12] via-white/[0.04] to-purple-500/[0.12] p-6 shadow-2xl">
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
+                Live Showcase
+              </div>
+
+              <h2 className="mt-4 text-3xl font-black">WEB3MB Demo</h2>
+
+              <div className="mt-5 grid gap-3">
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+                  <div className="text-sm text-emerald-200">Trust Score</div>
+                  <div className="mt-1 text-3xl font-black">100 / 100</div>
+                </div>
+
+                <div className="rounded-2xl border border-purple-400/20 bg-purple-500/10 p-4">
+                  <div className="text-sm text-purple-200">
+                    Verification Status
+                  </div>
+                  <div className="mt-1 text-3xl font-black">
+                    Platinum Verified
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4">
+                  <div className="text-sm text-cyan-200">Wallet Coverage</div>
+                  <div className="mt-1 text-3xl font-black">4/4 Verified</div>
+                </div>
+              </div>
+
               <Link
-                key={plan.label}
-                href={plan.href}
-                className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-6 py-4 text-center text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/20"
+                href="/token/web3mb-demo"
+                className="mt-5 inline-flex w-full justify-center rounded-2xl border border-white/10 bg-white px-5 py-4 text-sm font-black text-black hover:bg-zinc-200"
               >
-                {plan.label}
+                Open Demo Dashboard
               </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-8">
+          <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
+            Platform Features
+          </div>
+
+          <h2 className="mt-3 text-4xl font-black">Everything needed to prove transparency.</h2>
+
+          <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {features.map((feature) => (
+              <div
+                key={feature.title}
+                className="rounded-3xl border border-white/10 bg-white/[0.04] p-6"
+              >
+                <div className="text-4xl">{feature.icon}</div>
+                <h3 className="mt-5 text-xl font-black">{feature.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-zinc-400">
+                  {feature.description}
+                </p>
+              </div>
             ))}
           </div>
-        </div>
+        </section>
+
+        <section className="py-10">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 md:p-8">
+            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+              <div>
+                <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
+                  Public Trust Network
+                </div>
+
+                <h2 className="mt-3 text-4xl font-black">
+                  Give investors links they can verify.
+                </h2>
+
+                <p className="mt-4 text-sm leading-7 text-zinc-300">
+                  WEB3MB creates public pages that projects can share with
+                  communities, investors, exchanges, and launch partners.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                {links.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-5 text-sm font-black text-cyan-100 hover:bg-cyan-500/20"
+                  >
+                    {item.label} →
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-10">
+          <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
+            Pricing
+          </div>
+
+          <h2 className="mt-3 text-4xl font-black">Start with verification.</h2>
+
+          <div className="mt-8 grid gap-5 lg:grid-cols-3">
+            {plans.map((plan) => (
+              <div
+                key={plan.name}
+                className="rounded-3xl border border-white/10 bg-black/30 p-6"
+              >
+                <h3 className="text-2xl font-black">{plan.name}</h3>
+                <div className="mt-4 text-4xl font-black">{plan.price}</div>
+                <p className="mt-4 min-h-[72px] text-sm leading-7 text-zinc-400">
+                  {plan.description}
+                </p>
+
+                <Link
+                  href={plan.href}
+                  className="mt-6 inline-flex w-full justify-center rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-5 py-4 text-sm font-black text-cyan-100 hover:bg-cyan-500/25"
+                >
+                  Choose Plan
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="py-10">
+          <div className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/[0.12] via-cyan-500/[0.08] to-purple-500/[0.1] p-8 text-center">
+            <h2 className="text-4xl font-black">
+              Ready to earn WEB3MB verification?
+            </h2>
+
+            <p className="mx-auto mt-4 max-w-3xl text-sm leading-7 text-zinc-300">
+              Verify your wallets, publish your dashboard, earn trust seal
+              awards, and show investors your project is serious about
+              transparency.
+            </p>
+
+            <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+              <Link
+                href="/app/billing"
+                className="rounded-2xl bg-white px-7 py-4 text-sm font-black text-black hover:bg-zinc-200"
+              >
+                Get Verified
+              </Link>
+
+              <Link
+                href="/verification-registry"
+                className="rounded-2xl border border-white/10 bg-white/10 px-7 py-4 text-sm font-black text-white hover:bg-white/15"
+              >
+                View Registry
+              </Link>
+            </div>
+          </div>
+        </section>
       </section>
     </main>
   );
