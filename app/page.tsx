@@ -189,82 +189,85 @@ export default function HomePage() {
         </section>
 
         <section className="py-10">
-  <div className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/[0.10] via-cyan-500/[0.08] to-purple-500/[0.10] p-6 md:p-8">
-    <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <div className="text-xs uppercase tracking-[0.24em] text-emerald-300">
-          Live Transparency Proof
-        </div>
+          <div className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/[0.10] via-cyan-500/[0.08] to-purple-500/[0.10] p-6 md:p-8">
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="text-xs uppercase tracking-[0.24em] text-emerald-300">
+                  Live Transparency Proof
+                </div>
 
-        <h2 className="mt-3 text-4xl font-black">
-          Public trust signals already live.
-        </h2>
+                <h2 className="mt-3 text-4xl font-black">
+                  Public trust signals already live.
+                </h2>
 
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">
-          WEB3MB is already tracking verified wallet records, public trust
-          scores, platinum verification status, investor dashboards, and
-          trust seal awards through live production APIs.
-        </p>
-      </div>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">
+                  WEB3MB is already tracking verified wallet records, public
+                  trust scores, platinum verification status, investor
+                  dashboards, and trust seal awards through live production
+                  APIs.
+                </p>
+              </div>
 
-      <Link
-        href="/verification-registry"
-        className="rounded-2xl border border-white/10 bg-white px-6 py-4 text-center text-sm font-black text-black hover:bg-zinc-200"
-      >
-        View Live Registry
-      </Link>
-    </div>
+              <Link
+                href="/verification-registry"
+                className="rounded-2xl border border-white/10 bg-white px-6 py-4 text-center text-sm font-black text-black hover:bg-zinc-200"
+              >
+                View Live Registry
+              </Link>
+            </div>
 
-    <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-        <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-          Verified Wallets
-        </div>
-        <div className="mt-3 text-4xl font-black text-white">4</div>
-        <div className="mt-2 text-sm text-zinc-400">
-          Owner-verified wallet records.
-        </div>
-      </div>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Verified Wallets
+                </div>
+                <div className="mt-3 text-4xl font-black text-white">4</div>
+                <div className="mt-2 text-sm text-zinc-400">
+                  Owner-verified wallet records.
+                </div>
+              </div>
 
-      <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-        <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-          Verified Projects
-        </div>
-        <div className="mt-3 text-4xl font-black text-white">1</div>
-        <div className="mt-2 text-sm text-zinc-400">
-          Listed in the public registry.
-        </div>
-      </div>
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Verified Projects
+                </div>
+                <div className="mt-3 text-4xl font-black text-white">1</div>
+                <div className="mt-2 text-sm text-zinc-400">
+                  Listed in the public registry.
+                </div>
+              </div>
 
-      <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-        <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-          Platinum Projects
-        </div>
-        <div className="mt-3 text-4xl font-black text-white">1</div>
-        <div className="mt-2 text-sm text-zinc-400">
-          Full wallet verification achieved.
-        </div>
-      </div>
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Platinum Projects
+                </div>
+                <div className="mt-3 text-4xl font-black text-white">1</div>
+                <div className="mt-2 text-sm text-zinc-400">
+                  Full wallet verification achieved.
+                </div>
+              </div>
 
-      <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-        <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-          Demo Trust Score
-        </div>
-        <div className="mt-3 text-4xl font-black text-white">100</div>
-        <div className="mt-2 text-sm text-zinc-400">
-          A+ Perfect showcase score.
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Demo Trust Score
+                </div>
+                <div className="mt-3 text-4xl font-black text-white">100</div>
+                <div className="mt-2 text-sm text-zinc-400">
+                  A+ Perfect showcase score.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section className="py-8">
           <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
             Platform Features
           </div>
 
-          <h2 className="mt-3 text-4xl font-black">Everything needed to prove transparency.</h2>
+          <h2 className="mt-3 text-4xl font-black">
+            Everything needed to prove transparency.
+          </h2>
 
           <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             {features.map((feature) => (
@@ -374,6 +377,53 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        <footer className="border-t border-white/10 py-8">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="text-lg font-black text-white">
+                WEB3MB Transparency Center
+              </div>
+
+              <div className="mt-2 text-sm text-zinc-400">
+                Crypto wallet verification, trust scores, and investor-facing
+                transparency dashboards.
+              </div>
+
+              <div className="mt-2 text-sm font-bold text-cyan-300">
+                verify@web3mb.com
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 text-sm">
+              <Link href="/transparency" className="text-zinc-400 hover:text-white">
+                Directory
+              </Link>
+
+              <Link
+                href="/verification-registry"
+                className="text-zinc-400 hover:text-white"
+              >
+                Registry
+              </Link>
+
+              <Link
+                href="/transparency/leaderboard"
+                className="text-zinc-400 hover:text-white"
+              >
+                Leaderboard
+              </Link>
+
+              <Link href="/privacy" className="text-zinc-400 hover:text-white">
+                Privacy
+              </Link>
+
+              <Link href="/terms" className="text-zinc-400 hover:text-white">
+                Terms
+              </Link>
+            </div>
+          </div>
+        </footer>
       </section>
     </main>
   );
