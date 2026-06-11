@@ -79,7 +79,8 @@ const plans = [
   {
     name: "Starter",
     price: "$99/mo",
-    description: "For one project with core wallet verification and trust scoring.",
+    description:
+      "For one project with core wallet verification and trust scoring.",
     href: "/app/billing",
   },
   {
@@ -96,14 +97,27 @@ type RegistryStats = {
   platinumProjects: number;
 };
 
+type DemoShowcase = {
+  projectName: string;
+  score: number;
+  grade: string;
+  status: string;
+  verifiedWallets: number;
+  totalWallets: number;
+  tier: string;
+};
+
+function getBaseUrl() {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://app.web3mb.com"
+  );
+}
+
 async function getRegistryStats(): Promise<RegistryStats> {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://app.web3mb.com";
-
-    const res = await fetch(`${baseUrl}/api/verification-registry`, {
+    const res = await fetch(`${getBaseUrl()}/api/verification-registry`, {
       cache: "no-store",
     });
 
@@ -123,8 +137,41 @@ async function getRegistryStats(): Promise<RegistryStats> {
   }
 }
 
+async function getDemoShowcase(): Promise<DemoShowcase> {
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/trust-score/web3mb-demo`, {
+      cache: "no-store",
+    });
+
+    const data = await res.json();
+
+    return {
+      projectName: data?.project?.name || data?.projectName || "WEB3MB Demo",
+      score: data?.score || 0,
+      grade: data?.grade || "—",
+      status: data?.status || "Unknown",
+      verifiedWallets: data?.verification?.verifiedWallets || 4,
+      totalWallets: data?.verification?.totalWallets || 4,
+      tier: data?.verification?.tier || "Platinum",
+    };
+  } catch {
+    return {
+      projectName: "WEB3MB Demo",
+      score: 100,
+      grade: "A+",
+      status: "Perfect",
+      verifiedWallets: 4,
+      totalWallets: 4,
+      tier: "Platinum",
+    };
+  }
+}
+
 export default async function HomePage() {
-  const registryStats = await getRegistryStats();
+  const [registryStats, demoShowcase] = await Promise.all([
+    getRegistryStats(),
+    getDemoShowcase(),
+  ]);
 
   return (
     <div className="min-h-screen bg-[#050816] text-white">
@@ -139,13 +186,24 @@ export default async function HomePage() {
           </Link>
 
           <nav className="flex flex-wrap gap-3">
-            <Link href="/transparency" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold hover:bg-white/10">
+            <Link
+              href="/transparency"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold hover:bg-white/10"
+            >
               Directory
             </Link>
-            <Link href="/verification-registry" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold hover:bg-white/10">
+
+            <Link
+              href="/verification-registry"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold hover:bg-white/10"
+            >
               Registry
             </Link>
-            <Link href="/app/billing" className="rounded-xl border border-cyan-400/30 bg-cyan-500/15 px-4 py-3 text-sm font-black text-cyan-100 hover:bg-cyan-500/25">
+
+            <Link
+              href="/app/billing"
+              className="rounded-xl border border-cyan-400/30 bg-cyan-500/15 px-4 py-3 text-sm font-black text-cyan-100 hover:bg-cyan-500/25"
+            >
               Get Verified
             </Link>
           </nav>
@@ -168,26 +226,45 @@ export default async function HomePage() {
             </p>
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-              <Link href="/app/billing" className="rounded-2xl bg-white px-7 py-4 text-center text-sm font-black text-black hover:bg-zinc-200">
+              <Link
+                href="/app/billing"
+                className="rounded-2xl bg-white px-7 py-4 text-center text-sm font-black text-black hover:bg-zinc-200"
+              >
                 Get Verified
               </Link>
-              <Link href="/token/web3mb-demo" className="rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-7 py-4 text-center text-sm font-black text-cyan-100 hover:bg-cyan-500/25">
+
+              <Link
+                href="/token/web3mb-demo"
+                className="rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-7 py-4 text-center text-sm font-black text-cyan-100 hover:bg-cyan-500/25"
+              >
                 View Live Demo
               </Link>
             </div>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <div className="text-3xl font-black">100</div>
-                <div className="mt-1 text-sm text-zinc-400">Perfect demo trust score</div>
+                <div className="text-3xl font-black">
+                  {demoShowcase.score}
+                </div>
+                <div className="mt-1 text-sm text-zinc-400">
+                  {demoShowcase.status} demo trust score
+                </div>
               </div>
+
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <div className="text-3xl font-black">A+</div>
-                <div className="mt-1 text-sm text-zinc-400">WEB3MB trust grade</div>
+                <div className="text-3xl font-black">
+                  {demoShowcase.grade}
+                </div>
+                <div className="mt-1 text-sm text-zinc-400">
+                  WEB3MB trust grade
+                </div>
               </div>
+
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <div className="text-3xl font-black">Platinum</div>
-                <div className="mt-1 text-sm text-zinc-400">Verification tier</div>
+                <div className="text-3xl font-black">{demoShowcase.tier}</div>
+                <div className="mt-1 text-sm text-zinc-400">
+                  Verification tier
+                </div>
               </div>
             </div>
           </div>
@@ -197,24 +274,41 @@ export default async function HomePage() {
               <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
                 Live Showcase
               </div>
-              <h2 className="mt-4 text-3xl font-black">WEB3MB Demo</h2>
+
+              <h2 className="mt-4 text-3xl font-black">
+                {demoShowcase.projectName}
+              </h2>
 
               <div className="mt-5 grid gap-3">
                 <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
                   <div className="text-sm text-emerald-200">Trust Score</div>
-                  <div className="mt-1 text-3xl font-black">100 / 100</div>
+                  <div className="mt-1 text-3xl font-black">
+                    {demoShowcase.score} / 100
+                  </div>
                 </div>
+
                 <div className="rounded-2xl border border-purple-400/20 bg-purple-500/10 p-4">
-                  <div className="text-sm text-purple-200">Verification Status</div>
-                  <div className="mt-1 text-3xl font-black">Platinum Verified</div>
+                  <div className="text-sm text-purple-200">
+                    Verification Status
+                  </div>
+                  <div className="mt-1 text-3xl font-black">
+                    {demoShowcase.tier} Verified
+                  </div>
                 </div>
+
                 <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4">
                   <div className="text-sm text-cyan-200">Wallet Coverage</div>
-                  <div className="mt-1 text-3xl font-black">4/4 Verified</div>
+                  <div className="mt-1 text-3xl font-black">
+                    {demoShowcase.verifiedWallets}/{demoShowcase.totalWallets}{" "}
+                    Verified
+                  </div>
                 </div>
               </div>
 
-              <Link href="/token/web3mb-demo" className="mt-5 inline-flex w-full justify-center rounded-2xl border border-white/10 bg-white px-5 py-4 text-sm font-black text-black hover:bg-zinc-200">
+              <Link
+                href="/token/web3mb-demo"
+                className="mt-5 inline-flex w-full justify-center rounded-2xl border border-white/10 bg-white px-5 py-4 text-sm font-black text-black hover:bg-zinc-200"
+              >
                 Open Demo Dashboard
               </Link>
             </div>
@@ -234,35 +328,66 @@ export default async function HomePage() {
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">
                   WEB3MB is already tracking verified wallet records, public
                   trust scores, platinum verification status, investor
-                  dashboards, and trust seal awards through live production APIs.
+                  dashboards, and trust seal awards through live production
+                  APIs.
                 </p>
               </div>
 
-              <Link href="/verification-registry" className="rounded-2xl border border-white/10 bg-white px-6 py-4 text-center text-sm font-black text-black hover:bg-zinc-200">
+              <Link
+                href="/verification-registry"
+                className="rounded-2xl border border-white/10 bg-white px-6 py-4 text-center text-sm font-black text-black hover:bg-zinc-200"
+              >
                 View Live Registry
               </Link>
             </div>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">Verified Wallets</div>
-                <div className="mt-3 text-4xl font-black text-white">{registryStats.verifiedWallets}</div>
-                <div className="mt-2 text-sm text-zinc-400">Owner-verified wallet records.</div>
+                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Verified Wallets
+                </div>
+                <div className="mt-3 text-4xl font-black text-white">
+                  {registryStats.verifiedWallets}
+                </div>
+                <div className="mt-2 text-sm text-zinc-400">
+                  Owner-verified wallet records.
+                </div>
               </div>
+
               <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">Verified Projects</div>
-                <div className="mt-3 text-4xl font-black text-white">{registryStats.verifiedProjects}</div>
-                <div className="mt-2 text-sm text-zinc-400">Listed in the public registry.</div>
+                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Verified Projects
+                </div>
+                <div className="mt-3 text-4xl font-black text-white">
+                  {registryStats.verifiedProjects}
+                </div>
+                <div className="mt-2 text-sm text-zinc-400">
+                  Listed in the public registry.
+                </div>
               </div>
+
               <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">Platinum Projects</div>
-                <div className="mt-3 text-4xl font-black text-white">{registryStats.platinumProjects}</div>
-                <div className="mt-2 text-sm text-zinc-400">Full wallet verification achieved.</div>
+                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Platinum Projects
+                </div>
+                <div className="mt-3 text-4xl font-black text-white">
+                  {registryStats.platinumProjects}
+                </div>
+                <div className="mt-2 text-sm text-zinc-400">
+                  Full wallet verification achieved.
+                </div>
               </div>
+
               <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">Demo Trust Score</div>
-                <div className="mt-3 text-4xl font-black text-white">100</div>
-                <div className="mt-2 text-sm text-zinc-400">A+ Perfect showcase score.</div>
+                <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Demo Trust Score
+                </div>
+                <div className="mt-3 text-4xl font-black text-white">
+                  {demoShowcase.score}
+                </div>
+                <div className="mt-2 text-sm text-zinc-400">
+                  {demoShowcase.grade} {demoShowcase.status} showcase score.
+                </div>
               </div>
             </div>
           </div>
@@ -278,10 +403,15 @@ export default async function HomePage() {
 
           <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             {features.map((feature) => (
-              <div key={feature.title} className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+              <div
+                key={feature.title}
+                className="rounded-3xl border border-white/10 bg-white/[0.04] p-6"
+              >
                 <div className="text-4xl">{feature.icon}</div>
                 <h3 className="mt-5 text-xl font-black">{feature.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-zinc-400">{feature.description}</p>
+                <p className="mt-3 text-sm leading-7 text-zinc-400">
+                  {feature.description}
+                </p>
               </div>
             ))}
           </div>
@@ -305,7 +435,11 @@ export default async function HomePage() {
 
               <div className="grid gap-4 sm:grid-cols-3">
                 {links.map((item) => (
-                  <Link key={item.href} href={item.href} className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-5 text-sm font-black text-cyan-100 hover:bg-cyan-500/20">
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-5 text-sm font-black text-cyan-100 hover:bg-cyan-500/20"
+                  >
                     {item.label} →
                   </Link>
                 ))}
@@ -322,13 +456,19 @@ export default async function HomePage() {
 
           <div className="mt-8 grid gap-5 lg:grid-cols-3">
             {plans.map((plan) => (
-              <div key={plan.name} className="rounded-3xl border border-white/10 bg-black/30 p-6">
+              <div
+                key={plan.name}
+                className="rounded-3xl border border-white/10 bg-black/30 p-6"
+              >
                 <h3 className="text-2xl font-black">{plan.name}</h3>
                 <div className="mt-4 text-4xl font-black">{plan.price}</div>
                 <p className="mt-4 min-h-[72px] text-sm leading-7 text-zinc-400">
                   {plan.description}
                 </p>
-                <Link href={plan.href} className="mt-6 inline-flex w-full justify-center rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-5 py-4 text-sm font-black text-cyan-100 hover:bg-cyan-500/25">
+                <Link
+                  href={plan.href}
+                  className="mt-6 inline-flex w-full justify-center rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-5 py-4 text-sm font-black text-cyan-100 hover:bg-cyan-500/25"
+                >
                   Choose Plan
                 </Link>
               </div>
@@ -347,10 +487,16 @@ export default async function HomePage() {
               transparency.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
-              <Link href="/app/billing" className="rounded-2xl bg-white px-7 py-4 text-sm font-black text-black hover:bg-zinc-200">
+              <Link
+                href="/app/billing"
+                className="rounded-2xl bg-white px-7 py-4 text-sm font-black text-black hover:bg-zinc-200"
+              >
                 Get Verified
               </Link>
-              <Link href="/verification-registry" className="rounded-2xl border border-white/10 bg-white/10 px-7 py-4 text-sm font-black text-white hover:bg-white/15">
+              <Link
+                href="/verification-registry"
+                className="rounded-2xl border border-white/10 bg-white/10 px-7 py-4 text-sm font-black text-white hover:bg-white/15"
+              >
                 View Registry
               </Link>
             </div>
@@ -373,11 +519,30 @@ export default async function HomePage() {
             </div>
 
             <div className="flex flex-wrap gap-4 text-sm">
-              <Link href="/transparency" className="text-zinc-400 hover:text-white">Directory</Link>
-              <Link href="/verification-registry" className="text-zinc-400 hover:text-white">Registry</Link>
-              <Link href="/transparency/leaderboard" className="text-zinc-400 hover:text-white">Leaderboard</Link>
-              <Link href="/privacy" className="text-zinc-400 hover:text-white">Privacy</Link>
-              <Link href="/terms" className="text-zinc-400 hover:text-white">Terms</Link>
+              <Link
+                href="/transparency"
+                className="text-zinc-400 hover:text-white"
+              >
+                Directory
+              </Link>
+              <Link
+                href="/verification-registry"
+                className="text-zinc-400 hover:text-white"
+              >
+                Registry
+              </Link>
+              <Link
+                href="/transparency/leaderboard"
+                className="text-zinc-400 hover:text-white"
+              >
+                Leaderboard
+              </Link>
+              <Link href="/privacy" className="text-zinc-400 hover:text-white">
+                Privacy
+              </Link>
+              <Link href="/terms" className="text-zinc-400 hover:text-white">
+                Terms
+              </Link>
             </div>
           </div>
         </footer>
