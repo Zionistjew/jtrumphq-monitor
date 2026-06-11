@@ -1867,6 +1867,61 @@ export default async function TokenPublicPage({
             lowSolWallets={lowSolWallets}
           />
 
+            <div className="mt-8 rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/[0.08] via-white/[0.03] to-purple-500/[0.08] p-6">
+  <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+    <div>
+      <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
+        Get Verified
+      </div>
+
+      <h2 className="mt-3 text-3xl font-semibold text-white">
+        Earn WEB3MB Verification
+      </h2>
+
+      <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-300">
+        Verify your treasury, team, liquidity, and marketing wallets to
+        improve investor confidence, earn trust seal awards, appear in the
+        verification registry, and unlock higher transparency ratings.
+      </p>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          ✅ Public Wallet Verification
+        </div>
+
+        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100">
+          💎 Trust Seal Awards
+        </div>
+
+        <div className="rounded-2xl border border-purple-400/20 bg-purple-500/10 px-4 py-3 text-sm text-purple-100">
+          🏆 Verification Registry Listing
+        </div>
+
+        <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          📈 Increased Investor Trust
+        </div>
+      </div>
+    </div>
+
+    <div className="flex flex-col gap-3">
+      <Link
+        href="/app/verify-wallets"
+        className="inline-flex items-center justify-center rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-6 py-4 text-sm font-black text-cyan-100 hover:bg-cyan-500/25"
+      >
+        Get Verified
+      </Link>
+
+      <Link
+        href="/verification-registry"
+        className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-sm font-black text-white hover:bg-white/10"
+      >
+        View Verification Registry
+      </Link>
+    </div>
+  </div>
+</div>
+
+
             <RecommendedActionsPanel
             wallets={wallets}
             mismatchWallets={mismatchWallets}
