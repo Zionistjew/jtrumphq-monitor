@@ -91,10 +91,23 @@ const plans = [
   },
 ];
 
+type FeaturedProject = {
+  projectSlug: string;
+  projectName: string;
+  projectSymbol: string;
+  verificationTier: string;
+  verifiedWallets: number;
+  totalWallets: number;
+  verificationRate: number;
+  dashboardUrl: string;
+  sealUrl: string;
+};
+
 type RegistryStats = {
   verifiedWallets: number;
   verifiedProjects: number;
   platinumProjects: number;
+  featuredProjects: FeaturedProject[];
 };
 
 type DemoShowcase = {
@@ -122,17 +135,39 @@ async function getRegistryStats(): Promise<RegistryStats> {
     });
 
     const data = await res.json();
+    const registry = Array.isArray(data?.registry) ? data.registry : [];
+    const projects = new Map<string, FeaturedProject>();
+
+    registry.forEach((row: any) => {
+      const slug = String(row.projectSlug || "").trim();
+
+      if (!slug || projects.has(slug)) return;
+
+      projects.set(slug, {
+        projectSlug: slug,
+        projectName: row.projectName || "Verified Project",
+        projectSymbol: row.projectSymbol || "WEB3",
+        verificationTier: row.verificationTier || "Verified",
+        verifiedWallets: row.projectVerifiedWallets || 0,
+        totalWallets: row.projectTotalWallets || 0,
+        verificationRate: row.verificationRate || 0,
+        dashboardUrl: row.dashboardUrl || `/token/${slug}`,
+        sealUrl: row.sealUrl || `/api/trust-seal/${slug}`,
+      });
+    });
 
     return {
       verifiedWallets: data?.stats?.verifiedWallets || 0,
       verifiedProjects: data?.stats?.verifiedProjects || 0,
       platinumProjects: data?.stats?.platinumProjects || 0,
+      featuredProjects: Array.from(projects.values()).slice(0, 6),
     };
   } catch {
     return {
       verifiedWallets: 0,
       verifiedProjects: 0,
       platinumProjects: 0,
+      featuredProjects: [],
     };
   }
 }
@@ -494,6 +529,98 @@ export default async function HomePage() {
             ))}
           </div>
         </section>
+
+        {registryStats.featuredProjects.length > 0 && (
+          <section className="py-10">
+            <div className="rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/[0.10] via-cyan-500/[0.06] to-emerald-500/[0.08] p-6 md:p-8">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.24em] text-purple-300">
+                    Featured Verified Projects
+                  </div>
+
+                  <h2 className="mt-3 text-4xl font-black">
+                    Projects already building trust with WEB3MB.
+                  </h2>
+
+                  <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">
+                    See verified crypto projects using public dashboards,
+                    trust scores, verification tiers, and transparency records
+                    to build investor confidence.
+                  </p>
+                </div>
+
+                <Link
+                  href="/verification-registry"
+                  className="rounded-2xl border border-white/10 bg-white px-6 py-4 text-center text-sm font-black text-black hover:bg-zinc-200"
+                >
+                  View All Verified Projects
+                </Link>
+              </div>
+
+              <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {registryStats.featuredProjects.map((project) => (
+                  <div
+                    key={project.projectSlug}
+                    className="rounded-3xl border border-white/10 bg-black/30 p-6"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-2xl font-black text-white">
+                          {project.projectName}
+                        </h3>
+
+                        <div className="mt-1 text-sm font-bold text-zinc-400">
+                          {project.projectSymbol}
+                        </div>
+                      </div>
+
+                      <div className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-200">
+                        {project.verificationTier}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-3">
+                      <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4">
+                        <div className="text-xs uppercase tracking-[0.16em] text-cyan-300">
+                          Project Wallet Verification
+                        </div>
+                        <div className="mt-2 text-2xl font-black">
+                          {project.verifiedWallets}/{project.totalWallets} Verified
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-purple-400/20 bg-purple-500/10 p-4">
+                        <div className="text-xs uppercase tracking-[0.16em] text-purple-300">
+                          Verification Rate
+                        </div>
+                        <div className="mt-2 text-2xl font-black">
+                          {project.verificationRate}%
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                      <Link
+                        href={project.dashboardUrl}
+                        className="flex-1 rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-4 py-3 text-center text-sm font-black text-cyan-100 hover:bg-cyan-500/25"
+                      >
+                        Dashboard
+                      </Link>
+
+                      <Link
+                        href={project.sealUrl}
+                        className="flex-1 rounded-2xl border border-purple-400/30 bg-purple-500/15 px-4 py-3 text-center text-sm font-black text-purple-100 hover:bg-purple-500/25"
+                      >
+                        Trust Seal
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="py-10">
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 md:p-8">
