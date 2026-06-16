@@ -301,7 +301,7 @@ export default async function HomePage() {
 
                 <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4">
                   <div className="text-sm text-cyan-200">
-                    Verified Wallet Coverage
+                    Project Wallet Verification
                   </div>
                   <div className="mt-1 text-3xl font-black">
                     {demoShowcase.verifiedWallets}/{demoShowcase.totalWallets}{" "}
@@ -422,13 +422,13 @@ export default async function HomePage() {
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
                 <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                  Verified Wallets
+                  Verified Project Wallets
                 </div>
                 <div className="mt-3 text-4xl font-black text-white">
                   {registryStats.verifiedWallets}
                 </div>
                 <div className="mt-2 text-sm text-zinc-400">
-                  Owner-verified wallet records.
+                  Verified wallets disclosed by projects.
                 </div>
               </div>
 
