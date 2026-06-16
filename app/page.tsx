@@ -591,8 +591,68 @@ export default async function HomePage() {
                 Crypto project verification, trust scores, transparency
                 dashboards, and investor confidence solutions.
               </div>
-              <div className="mt-2 text-sm font-bold text-cyan-300">
+                            <div className="mt-2 text-sm font-bold text-cyan-300">
                 verify@web3mb.com
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3 text-xs">
+                <a
+                  href="https://x.com/web3mbOfficial"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-white/10 px-3 py-2 text-zinc-300 hover:border-cyan-400/40 hover:text-cyan-300"
+                >
+                  X
+                </a>
+
+                <a
+                  href="https://www.youtube.com/@web3MBOfficial"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-white/10 px-3 py-2 text-zinc-300 hover:border-red-400/40 hover:text-red-300"
+                >
+                  YouTube
+                </a>
+
+                <a
+                  href="https://instagram.com/Web3MBOfficial"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-white/10 px-3 py-2 text-zinc-300 hover:border-pink-400/40 hover:text-pink-300"
+                >
+                  Instagram
+                </a>
+
+                <a
+                  href="https://www.linkedin.com/in/web3-mb-621094416/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-white/10 px-3 py-2 text-zinc-300 hover:border-blue-400/40 hover:text-blue-300"
+                >
+                  LinkedIn
+                </a>
+
+                <a
+                  href="https://www.facebook.com/profile.php?id=61590506711765"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-white/10 px-3 py-2 text-zinc-300 hover:border-blue-500/40 hover:text-blue-300"
+                >
+                  Facebook
+                </a>
+
+                <a
+                  href="https://t.me/Web3MBOfficial"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-white/10 px-3 py-2 text-zinc-300 hover:border-cyan-400/40 hover:text-cyan-300"
+                >
+                  Telegram
+                </a>
+
+                <span className="rounded-lg border border-white/10 px-3 py-2 text-zinc-300">
+                  Discord: Web3MBOfficial
+                </span>
               </div>
             </div>
 
