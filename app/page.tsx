@@ -4,13 +4,13 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "WEB3MB Transparency Center | Crypto Wallet Verification & Trust Scores",
+  title: "WEB3MB Transparency Center | Crypto Project Verification & Trust Scores",
   description:
-    "WEB3MB helps crypto projects verify wallets, publish investor-facing transparency dashboards, earn trust seal awards, and build public trust with explainable trust scores.",
+    "WEB3MB helps crypto projects earn verification, publish transparency dashboards, generate trust scores, and build investor confidence.",
   openGraph: {
     title: "WEB3MB Transparency Center",
     description:
-      "Crypto wallet verification, trust scores, trust seal awards, and investor-facing transparency dashboards.",
+      "Crypto project verification, trust scores, trust seal awards, and investor-facing transparency dashboards.",
     url: "https://app.web3mb.com",
     siteName: "WEB3MB Transparency Center",
     images: [
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "WEB3MB Transparency Center",
     description:
-      "Verify crypto project wallets, publish public trust dashboards, and earn WEB3MB trust seal awards.",
+      "Verify crypto projects, publish public trust dashboards, and earn WEB3MB trust seal awards.",
     images: ["https://app.web3mb.com/WEB3MB-L.png"],
   },
   alternates: {
@@ -38,15 +38,15 @@ export const metadata: Metadata = {
 
 const features = [
   {
-    title: "Wallet Verification",
+    title: "Project Verification",
     description:
-      "Verify treasury, team, liquidity, and marketing wallets so investors can see public ownership proof.",
+      "Verify your crypto project through ownership verification, wallet disclosure, transparency reporting, and public accountability standards.",
     icon: "✅",
   },
   {
     title: "Trust Scores",
     description:
-      "Generate explainable WEB3MB trust scores based on wallet health, alerts, liquidity, and disclosure depth.",
+      "Generate explainable WEB3MB trust scores based on verification status, wallet health, alerts, liquidity, and disclosure depth.",
     icon: "📊",
   },
   {
@@ -80,7 +80,7 @@ const plans = [
     name: "Starter",
     price: "$99/mo",
     description:
-      "For one project with core wallet verification and trust scoring.",
+      "For one project with verification, trust scoring, transparency reporting, and investor dashboards.",
     href: "/app/billing",
   },
   {
@@ -212,7 +212,7 @@ export default async function HomePage() {
         <section className="grid gap-10 py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div>
             <div className="inline-flex rounded-full border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-cyan-300">
-              Crypto Transparency Layer
+              Crypto Project Verification
             </div>
 
             <h1 className="mt-6 max-w-5xl text-4xl font-black tracking-tight sm:text-6xl lg:text-7xl">
@@ -220,9 +220,10 @@ export default async function HomePage() {
             </h1>
 
             <p className="mt-6 max-w-3xl text-lg leading-8 text-zinc-300">
-              WEB3MB verifies project wallets, generates investor-facing trust
-              scores, issues public trust seal awards, and gives communities a
-              transparent dashboard they can inspect before they invest.
+              WEB3MB verifies crypto projects, generates investor-facing trust
+              scores, issues public trust seal awards, and provides
+              transparency dashboards that help investors make informed
+              decisions.
             </p>
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
@@ -272,7 +273,7 @@ export default async function HomePage() {
           <div className="rounded-3xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/[0.12] via-white/[0.04] to-purple-500/[0.12] p-6 shadow-2xl">
             <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
               <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
-                Live Showcase
+                Live Verified Project
               </div>
 
               <h2 className="mt-4 text-3xl font-black">
@@ -281,7 +282,9 @@ export default async function HomePage() {
 
               <div className="mt-5 grid gap-3">
                 <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
-                  <div className="text-sm text-emerald-200">Trust Score</div>
+                  <div className="text-sm text-emerald-200">
+                    Project Trust Score
+                  </div>
                   <div className="mt-1 text-3xl font-black">
                     {demoShowcase.score} / 100
                   </div>
@@ -289,7 +292,7 @@ export default async function HomePage() {
 
                 <div className="rounded-2xl border border-purple-400/20 bg-purple-500/10 p-4">
                   <div className="text-sm text-purple-200">
-                    Verification Status
+                    Project Verification Status
                   </div>
                   <div className="mt-1 text-3xl font-black">
                     {demoShowcase.tier} Verified
@@ -297,7 +300,9 @@ export default async function HomePage() {
                 </div>
 
                 <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4">
-                  <div className="text-sm text-cyan-200">Wallet Coverage</div>
+                  <div className="text-sm text-cyan-200">
+                    Verified Wallet Coverage
+                  </div>
                   <div className="mt-1 text-3xl font-black">
                     {demoShowcase.verifiedWallets}/{demoShowcase.totalWallets}{" "}
                     Verified
@@ -326,10 +331,10 @@ export default async function HomePage() {
                   Public trust signals already live.
                 </h2>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">
-                  WEB3MB is already tracking verified wallet records, public
-                  trust scores, platinum verification status, investor
-                  dashboards, and trust seal awards through live production
-                  APIs.
+                  WEB3MB is already tracking verified wallet records, verified
+                  projects, public trust scores, platinum verification status,
+                  investor dashboards, and trust seal awards through live
+                  production APIs.
                 </p>
               </div>
 
@@ -362,7 +367,7 @@ export default async function HomePage() {
                   {registryStats.verifiedProjects}
                 </div>
                 <div className="mt-2 text-sm text-zinc-400">
-                  Listed in the public registry.
+                  Projects listed in the public registry.
                 </div>
               </div>
 
@@ -374,7 +379,7 @@ export default async function HomePage() {
                   {registryStats.platinumProjects}
                 </div>
                 <div className="mt-2 text-sm text-zinc-400">
-                  Full wallet verification achieved.
+                  Full project verification achieved.
                 </div>
               </div>
 
@@ -398,7 +403,7 @@ export default async function HomePage() {
             Platform Features
           </div>
           <h2 className="mt-3 text-4xl font-black">
-            Everything needed to prove transparency.
+            Everything needed to verify project transparency.
           </h2>
 
           <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -428,8 +433,9 @@ export default async function HomePage() {
                   Give investors links they can verify.
                 </h2>
                 <p className="mt-4 text-sm leading-7 text-zinc-300">
-                  WEB3MB creates public pages that projects can share with
-                  communities, investors, exchanges, and launch partners.
+                  WEB3MB creates public verification pages that projects can
+                  share with communities, investors, exchanges, and launch
+                  partners.
                 </p>
               </div>
 
@@ -482,9 +488,8 @@ export default async function HomePage() {
               Ready to earn WEB3MB verification?
             </h2>
             <p className="mx-auto mt-4 max-w-3xl text-sm leading-7 text-zinc-300">
-              Verify your wallets, publish your dashboard, earn trust seal
-              awards, and show investors your project is serious about
-              transparency.
+              Verify your project, publish your dashboard, earn trust seal
+              awards, and demonstrate transparency to investors.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
               <Link
@@ -510,8 +515,8 @@ export default async function HomePage() {
                 WEB3MB Transparency Center
               </div>
               <div className="mt-2 text-sm text-zinc-400">
-                Crypto wallet verification, trust scores, and investor-facing
-                transparency dashboards.
+                Crypto project verification, trust scores, transparency
+                dashboards, and investor confidence solutions.
               </div>
               <div className="mt-2 text-sm font-bold text-cyan-300">
                 verify@web3mb.com
