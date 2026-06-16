@@ -319,7 +319,80 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+                <section className="py-10">
+          <div className="rounded-3xl border border-cyan-400/20 bg-white/[0.04] p-6 md:p-8">
+            <div className="max-w-4xl">
+              <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
+                How WEB3MB Works
+              </div>
 
+              <h2 className="mt-3 text-4xl font-black">
+                A simple path from project verification to investor trust.
+              </h2>
+
+              <p className="mt-4 text-sm leading-7 text-zinc-300">
+                WEB3MB helps crypto projects move from claims to verifiable
+                transparency through a structured process investors can
+                understand.
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+                <div className="text-4xl font-black text-cyan-300">1</div>
+                <h3 className="mt-4 text-lg font-black text-white">
+                  Project Applies
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                  Create a WEB3MB project and submit your transparency profile.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+                <div className="text-4xl font-black text-cyan-300">2</div>
+                <h3 className="mt-4 text-lg font-black text-white">
+                  Verify Ownership
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                  Verify ownership of disclosed project wallets and treasury
+                  addresses.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+                <div className="text-4xl font-black text-cyan-300">3</div>
+                <h3 className="mt-4 text-lg font-black text-white">
+                  Publish Transparency
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                  Generate a public transparency dashboard investors can review.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+                <div className="text-4xl font-black text-cyan-300">4</div>
+                <h3 className="mt-4 text-lg font-black text-white">
+                  Receive Trust Score
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                  WEB3MB analyzes verification, liquidity, wallet health, and
+                  disclosures.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+                <div className="text-4xl font-black text-cyan-300">5</div>
+                <h3 className="mt-4 text-lg font-black text-white">
+                  Earn Trust Awards
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                  Projects can earn Platinum Verified, Perfect Trust Score, and
+                  public trust seal awards.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
         <section className="py-10">
           <div className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/[0.10] via-cyan-500/[0.08] to-purple-500/[0.10] p-6 md:p-8">
             <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
