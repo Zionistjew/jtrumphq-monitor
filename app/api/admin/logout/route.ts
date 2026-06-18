@@ -1,6 +1,7 @@
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-export async function POST() {
+function clearAdminSession() {
   cookies().set("admin_session", "", {
     httpOnly: true,
     secure: true,
@@ -8,6 +9,21 @@ export async function POST() {
     path: "/",
     maxAge: 0,
   });
+}
 
-  return Response.json({ ok: true });
+export async function POST() {
+  clearAdminSession();
+
+  return NextResponse.json({
+    ok: true,
+    message: "Admin logged out.",
+  });
+}
+
+export async function GET() {
+  clearAdminSession();
+
+  return NextResponse.redirect(
+    new URL("/admin/login", "https://app.web3mb.com")
+  );
 }
