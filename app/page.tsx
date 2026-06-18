@@ -67,6 +67,7 @@ const links = [
   { label: "View Demo Dashboard", href: "/token/web3mb-demo" },
   { label: "Verification Registry", href: "/verification-registry" },
   { label: "Leaderboard", href: "/transparency/leaderboard" },
+  { label: "Founding Projects", href: "/founding-projects" },
 ];
 
 const plans = [
@@ -236,6 +237,13 @@ export default async function HomePage() {
             </Link>
 
             <Link
+              href="/founding-projects"
+              className="rounded-xl border border-yellow-300/30 bg-yellow-300/10 px-4 py-3 text-sm font-black text-yellow-100 hover:bg-yellow-300/20"
+            >
+              Founding Projects
+            </Link>
+
+            <Link
               href="/app/billing"
               className="rounded-xl border border-cyan-400/30 bg-cyan-500/15 px-4 py-3 text-sm font-black text-cyan-100 hover:bg-cyan-500/25"
             >
@@ -254,6 +262,10 @@ export default async function HomePage() {
               Make your crypto project easier to trust.
             </h1>
 
+            <div className="mt-5 inline-flex rounded-full border border-yellow-300/30 bg-yellow-300/10 px-4 py-2 text-sm font-bold text-yellow-200">
+              First 5 Projects Only • 90 Days Free Verification
+            </div>
+
             <p className="mt-6 max-w-3xl text-lg leading-8 text-zinc-300">
               WEB3MB verifies crypto projects, generates investor-facing trust
               scores, issues public trust seal awards, and provides
@@ -270,6 +282,13 @@ export default async function HomePage() {
               </Link>
 
               <Link
+                href="/founding-projects"
+                className="rounded-2xl border border-yellow-300/30 bg-yellow-300/10 px-7 py-4 text-center text-sm font-black text-yellow-100 hover:bg-yellow-300/20"
+              >
+                Become A Founding Project
+              </Link>
+
+              <Link
                 href="/token/web3mb-demo"
                 className="rounded-2xl border border-cyan-400/30 bg-cyan-500/15 px-7 py-4 text-center text-sm font-black text-cyan-100 hover:bg-cyan-500/25"
               >
@@ -279,18 +298,14 @@ export default async function HomePage() {
 
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <div className="text-3xl font-black">
-                  {demoShowcase.score}
-                </div>
+                <div className="text-3xl font-black">{demoShowcase.score}</div>
                 <div className="mt-1 text-sm text-zinc-400">
                   {demoShowcase.status} demo trust score
                 </div>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <div className="text-3xl font-black">
-                  {demoShowcase.grade}
-                </div>
+                <div className="text-3xl font-black">{demoShowcase.grade}</div>
                 <div className="mt-1 text-sm text-zinc-400">
                   WEB3MB trust grade
                 </div>
@@ -354,7 +369,36 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
-                <section className="py-10">
+
+        <section className="py-10">
+          <div className="rounded-3xl border border-yellow-300/20 bg-gradient-to-br from-yellow-300/[0.12] via-cyan-500/[0.08] to-purple-500/[0.10] p-6 md:p-8">
+            <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div>
+                <div className="text-xs uppercase tracking-[0.24em] text-yellow-200">
+                  Founding Projects Program
+                </div>
+                <h2 className="mt-3 text-4xl font-black">
+                  Apply to become one of the first 5 verified WEB3MB projects.
+                </h2>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">
+                  WEB3MB is selecting five early projects for complimentary
+                  verification, homepage visibility, public registry exposure,
+                  trust score analysis, trust seal awards, and case study
+                  promotion.
+                </p>
+              </div>
+
+              <Link
+                href="/founding-projects"
+                className="rounded-2xl border border-yellow-300/30 bg-yellow-300/15 px-6 py-4 text-center text-sm font-black text-yellow-100 hover:bg-yellow-300/25"
+              >
+                Apply For Founding Status
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-10">
           <div className="rounded-3xl border border-cyan-400/20 bg-white/[0.04] p-6 md:p-8">
             <div className="max-w-4xl">
               <div className="text-xs uppercase tracking-[0.24em] text-cyan-300">
@@ -428,6 +472,7 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+
         <section className="py-10">
           <div className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/[0.10] via-cyan-500/[0.08] to-purple-500/[0.10] p-6 md:p-8">
             <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
@@ -544,9 +589,9 @@ export default async function HomePage() {
                   </h2>
 
                   <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">
-                    See verified crypto projects using public dashboards,
-                    trust scores, verification tiers, and transparency records
-                    to build investor confidence.
+                    See verified crypto projects using public dashboards, trust
+                    scores, verification tiers, and transparency records to
+                    build investor confidence.
                   </p>
                 </div>
 
@@ -586,7 +631,8 @@ export default async function HomePage() {
                           Project Wallet Verification
                         </div>
                         <div className="mt-2 text-2xl font-black">
-                          {project.verifiedWallets}/{project.totalWallets} Verified
+                          {project.verifiedWallets}/{project.totalWallets}{" "}
+                          Verified
                         </div>
                       </div>
 
@@ -639,7 +685,7 @@ export default async function HomePage() {
                 </p>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {links.map((item) => (
                   <Link
                     key={item.href}
@@ -693,11 +739,19 @@ export default async function HomePage() {
             </p>
             <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
               <Link
+                href="/founding-projects"
+                className="rounded-2xl border border-yellow-300/30 bg-yellow-300/10 px-7 py-4 text-sm font-black text-yellow-100 hover:bg-yellow-300/20"
+              >
+                Become A Founding Project
+              </Link>
+
+              <Link
                 href="/app/billing"
                 className="rounded-2xl bg-white px-7 py-4 text-sm font-black text-black hover:bg-zinc-200"
               >
                 Get Verified
               </Link>
+
               <Link
                 href="/verification-registry"
                 className="rounded-2xl border border-white/10 bg-white/10 px-7 py-4 text-sm font-black text-white hover:bg-white/15"
@@ -718,7 +772,7 @@ export default async function HomePage() {
                 Crypto project verification, trust scores, transparency
                 dashboards, and investor confidence solutions.
               </div>
-                            <div className="mt-2 text-sm font-bold text-cyan-300">
+              <div className="mt-2 text-sm font-bold text-cyan-300">
                 verify@web3mb.com
               </div>
 
@@ -801,6 +855,12 @@ export default async function HomePage() {
                 className="text-zinc-400 hover:text-white"
               >
                 Leaderboard
+              </Link>
+              <Link
+                href="/founding-projects"
+                className="text-zinc-400 hover:text-white"
+              >
+                Founding Projects
               </Link>
               <Link href="/privacy" className="text-zinc-400 hover:text-white">
                 Privacy
