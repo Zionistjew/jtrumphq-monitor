@@ -66,6 +66,9 @@ export default async function AdminFoundingProjectsPage() {
     .select("*")
     .order("created_at", { ascending: false });
 
+console.log("FOUNDING PROJECT DATA:", data);
+console.log("FOUNDING PROJECT ERROR:", error);
+
   const applications = (data || []) as Application[];
 
   return (
