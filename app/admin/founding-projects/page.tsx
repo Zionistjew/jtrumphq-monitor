@@ -21,6 +21,14 @@ type Application = {
   created_at: string;
 };
 
+function requireAdmin() {
+  const adminSession = cookies().get("admin_session")?.value;
+
+  if (adminSession !== "authenticated") {
+    redirect("/admin/login?next=/admin/founding-projects");
+  }
+}
+
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -40,11 +48,7 @@ function getSupabaseAdmin() {
 async function updateApplicationStatus(formData: FormData) {
   "use server";
 
-  const adminSession = cookies().get("admin_session")?.value;
-
-  if (adminSession !== "authenticated") {
-    redirect("/admin/login?next=/admin/founding-projects");
-  }
+  requireAdmin();
 
   const id = String(formData.get("id") || "");
   const status = String(formData.get("status") || "pending");
@@ -66,12 +70,24 @@ async function updateApplicationStatus(formData: FormData) {
   revalidatePath("/admin/founding-projects");
 }
 
-export default async function AdminFoundingProjectsPage() {
-  const adminSession = cookies().get("admin_session")?.value;
+async function deleteApplication(formData: FormData) {
+  "use server";
 
-  if (adminSession !== "authenticated") {
-    redirect("/admin/login?next=/admin/founding-projects");
-  }
+  requireAdmin();
+
+  const id = String(formData.get("id") || "");
+
+  if (!id) return;
+
+  const supabase = getSupabaseAdmin();
+
+  await supabase.from("founding_project_applications").delete().eq("id", id);
+
+  revalidatePath("/admin/founding-projects");
+}
+
+export default async function AdminFoundingProjectsPage() {
+  requireAdmin();
 
   const supabase = getSupabaseAdmin();
 
@@ -94,7 +110,8 @@ export default async function AdminFoundingProjectsPage() {
               Founding Project Applications
             </h1>
             <p className="mt-2 text-sm text-zinc-400">
-              Review applications for the first 5 WEB3MB Founding Projects.
+              Review, update, or delete applications for the first 5 WEB3MB
+              Founding Projects.
             </p>
           </div>
 
@@ -230,6 +247,16 @@ export default async function AdminFoundingProjectsPage() {
                     className="rounded-xl bg-cyan-400 px-5 py-3 text-sm font-bold text-black hover:bg-cyan-300"
                   >
                     Save
+                  </button>
+                </form>
+
+                <form action={deleteApplication} className="mt-4">
+                  <input type="hidden" name="id" value={app.id} />
+                  <button
+                    type="submit"
+                    className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-bold text-red-200 hover:bg-red-500/20"
+                  >
+                    Delete Application
                   </button>
                 </form>
               </article>
