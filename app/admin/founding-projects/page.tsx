@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,12 @@ function getSupabaseAdmin() {
 async function updateApplicationStatus(formData: FormData) {
   "use server";
 
+  const adminSession = cookies().get("admin_session")?.value;
+
+  if (adminSession !== "authenticated") {
+    redirect("/admin/login?next=/admin/founding-projects");
+  }
+
   const id = String(formData.get("id") || "");
   const status = String(formData.get("status") || "pending");
   const admin_notes = String(formData.get("admin_notes") || "");
@@ -59,15 +67,18 @@ async function updateApplicationStatus(formData: FormData) {
 }
 
 export default async function AdminFoundingProjectsPage() {
+  const adminSession = cookies().get("admin_session")?.value;
+
+  if (adminSession !== "authenticated") {
+    redirect("/admin/login?next=/admin/founding-projects");
+  }
+
   const supabase = getSupabaseAdmin();
 
   const { data, error } = await supabase
     .from("founding_project_applications")
     .select("*")
     .order("created_at", { ascending: false });
-
-console.log("FOUNDING PROJECT DATA:", data);
-console.log("FOUNDING PROJECT ERROR:", error);
 
   const applications = (data || []) as Application[];
 
@@ -113,9 +124,11 @@ console.log("FOUNDING PROJECT ERROR:", error);
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <h2 className="text-2xl font-bold">{app.project_name}</h2>
+
                       <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs uppercase text-zinc-300">
                         {app.status}
                       </span>
+
                       {app.token_symbol ? (
                         <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-200">
                           ${app.token_symbol}
